@@ -52,6 +52,10 @@ class RoleChoices(models.TextChoices):
     INVESTOR = "INVESTOR", _("Investor")
     NONE = "NONE", _("None")
 
+class SubscriptionTierChoices(models.TextChoices):
+    FREE = "FREE", _("Free")
+    PRO = "PRO", _("Pro")
+
 
 class User(AbstractUser):
     """
@@ -76,6 +80,14 @@ class User(AbstractUser):
         db_index=True,
     )
     is_email_verified = models.BooleanField(default=False)
+    
+    # Settings & Subscription
+    push_notifications_enabled = models.BooleanField(default=True)
+    subscription_tier = models.CharField(
+        max_length=20,
+        choices=SubscriptionTierChoices.choices,
+        default=SubscriptionTierChoices.FREE
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]

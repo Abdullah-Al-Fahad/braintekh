@@ -23,7 +23,7 @@ from rest_framework.views import APIView
 from core.permissions import IsEmailVerified, IsInvestor, IsSponsor
 from core.responses import created_response, error_response, success_response
 from users.models import RoleChoices
-from .models import Document, Industry, InvestorProfile, SponsorProfile
+from .models import Document, Industry, InvestorProfile, SavedProfile, SponsorProfile, DocumentTypeChoices, VerificationStatusChoices
 from .serializers import (
     DocumentSerializer,
     IndustrySerializer,
@@ -174,7 +174,94 @@ class PublicProfileDetailView(APIView):
         else:
             return error_response("Profile not found or incomplete.", status_code=status.HTTP_404_NOT_FOUND)
             
+        if request.user.is_authenticated:
+            data['is_saved'] = SavedProfile.objects.filter(user=request.user, saved_user=user).exists()
+        else:
+            data['is_saved'] = False
+            
         return success_response(data=data)
+
+class ToggleSavedProfileView(APIView):
+    """
+    POST /api/v1/profiles/<user_id>/save/
+    Toggle bookmarking a user profile.
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, user_id):
+        User = get_user_model()
+        target_user = get_object_or_404(User, pk=user_id)
+        
+        if target_user == request.user:
+            return error_response("You cannot save your own profile.")
+            
+        saved_profile, created = SavedProfile.objects.get_or_create(user=request.user, saved_user=target_user)
+        
+        if not created:
+            saved_profile.delete()
+            return success_response(message="Profile removed from saved list.")
+            
+        return success_response(message="Profile saved successfully.")
+
+class VerificationDocumentUploadView(APIView):
+    """
+    POST /api/v1/profiles/verification-documents/
+    Upload business licenses, tax documents, etc. for compliance.
+    """
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        file_obj = request.data.get('file')
+        document_type = request.data.get('document_type')
+        
+        if not file_obj:
+            return error_response("A file is required.")
+            
+        if document_type not in dict(DocumentTypeChoices.choices):
+            return error_response(f"Invalid document_type. Must be one of {list(dict(DocumentTypeChoices.choices).keys())}")
+            
+        # Create the document linked to the User
+        Document.objects.create(
+            user=request.user,
+            document_type=document_type,
+            file=file_obj
+        )
+        
+        # If the Sponsor's verification is PENDING or REJECTED, this might trigger a re-review
+        profile = request.user.sponsor_profile
+        if profile.verification_status != VerificationStatusChoices.PENDING:
+            profile.verification_status = VerificationStatusChoices.PENDING
+            profile.save(update_fields=['verification_status'])
+            
+        return created_response(message="Document uploaded successfully. Verification is pending.")
+
+
+class SavedProfileListView(APIView):
+    """
+    GET /api/v1/profiles/saved/
+    List all user profiles bookmarked by the user.
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        User = get_user_model()
+        saved_users = User.objects.filter(saved_by_users__user=request.user)
+        
+        results = []
+        for user in saved_users:
+            if user.role == RoleChoices.INVESTOR and hasattr(user, 'investor_profile'):
+                data = InvestorProfileSerializer(user.investor_profile).data
+                data.pop('ssn_or_ein', None)
+                data['is_saved'] = True
+                results.append(data)
+            elif user.role == RoleChoices.SPONSOR and hasattr(user, 'sponsor_profile'):
+                data = SponsorProfileSerializer(user.sponsor_profile).data
+                data.pop('ssn_or_ein', None)
+                data['is_saved'] = True
+                results.append(data)
+                
+        return success_response(data=results)
 
 
 class IndustryListView(APIView):

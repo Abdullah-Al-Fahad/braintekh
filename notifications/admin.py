@@ -10,6 +10,6 @@ class NotificationAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'recipient', 'created_at')
-    search_fields = ('sender__email', 'recipient__email', 'content')
+    list_display = ('sender', 'conversation', 'created_at')
+    search_fields = ('sender__email', 'conversation__id', 'content')
     readonly_fields = ('created_at', 'updated_at')

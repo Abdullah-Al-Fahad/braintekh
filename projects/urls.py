@@ -3,6 +3,7 @@ from .views import (
     PublicProjectListView, PublicProjectDetailView,
     SponsorProjectListView, SponsorProjectDetailView,
     SponsorCollaborationRequestListView, SponsorCollaborationRequestUpdateView,
+    BulkConfirmInvestorsView,
     InvestorCollaborationRequestCreateView, InvestorSignNDAView, InvestorMyRequestsListView,
     ToggleSavedProjectView, SavedProjectListView
 )
@@ -17,8 +18,9 @@ urlpatterns = [
     # Sponsor Endpoints
     path('sponsor/', SponsorProjectListView.as_view(), name='sponsor-project-list-create'),
     path('sponsor/<int:pk>/', SponsorProjectDetailView.as_view(), name='sponsor-project-detail-update'),
-    path('sponsor/<int:project_id>/requests/', SponsorCollaborationRequestListView.as_view(), name='sponsor-project-requests'),
+    path('sponsor/<int:project_id>/requests/', SponsorCollaborationRequestListView.as_view(), name='sponsor-request-list'),
     path('sponsor/requests/<int:pk>/', SponsorCollaborationRequestUpdateView.as_view(), name='sponsor-request-update'),
+    path('<int:pk>/confirm-investors/', BulkConfirmInvestorsView.as_view(), name='sponsor-bulk-confirm'),
 
     # Investor Endpoints
     path('<int:project_id>/requests/', InvestorCollaborationRequestCreateView.as_view(), name='investor-request-create'),

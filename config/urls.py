@@ -27,6 +27,7 @@ urlpatterns = [
 
     # API v1
     path("api/v1/auth/", include("authentication.urls", namespace="authentication")),
+    path("api/v1/users/", include("users.urls", namespace="users")),
     path("api/v1/profiles/", include("profiles.urls", namespace="profiles")),
     path("api/v1/projects/", include("projects.urls", namespace="projects")),
     path("api/v1/notifications/", include("notifications.urls", namespace="notifications")),

@@ -34,6 +34,27 @@ class DocumentTypeChoices(models.TextChoices):
     OTHER = "OTHER", _("Other")
 
 
+class SavedProfile(TimeStampedModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_profiles",
+    )
+    saved_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_by_users",
+    )
+
+    class Meta:
+        verbose_name = _("Saved Profile")
+        verbose_name_plural = _("Saved Profiles")
+        unique_together = ("user", "saved_user")
+
+    def __str__(self) -> str:
+        return f"{self.user.email} saved {self.saved_user.email}"
+
+
 class Industry(models.Model):
     """
     A normalized list of industries managed from the admin panel.
@@ -123,7 +144,9 @@ class SponsorProfile(TimeStampedModel):
     # Personal / Contact Info
     phone = models.CharField(max_length=20, blank=True)
     country = models.CharField(max_length=100, blank=True)
+    location = models.CharField(max_length=255, blank=True)
     position_title = models.CharField(max_length=255, blank=True)
+    bio = models.TextField(blank=True)
     profile_photo = models.ImageField(upload_to="profile_photos/sponsors/", null=True, blank=True)
 
     # Compliance

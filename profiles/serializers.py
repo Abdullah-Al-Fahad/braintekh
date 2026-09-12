@@ -130,12 +130,14 @@ class SponsorProfileSerializer(UserFieldsMixin, serializers.ModelSerializer):
     class Meta:
         model = SponsorProfile
         fields = (
+            "id",
             "first_name", "last_name", "email",
             "legal_company_name", "registration_number",
             "business_address", "company_website",
-            "phone", "country", "position_title",
+            "phone", "country", "location",
+            "position_title", "bio",
             "profile_photo", "verification_status",
             "documents",
             "created_at", "updated_at",
         )
-        read_only_fields = ("verification_status", "documents", "created_at", "updated_at")
+        read_only_fields = ("id", "verification_status", "documents", "created_at", "updated_at")

@@ -8,6 +8,9 @@ from .views import (
     SponsorOnboardingView,
     VerificationStatusView,
     PublicProfileDetailView,
+    ToggleSavedProfileView,
+    SavedProfileListView,
+    VerificationDocumentUploadView
 )
 
 app_name = "profiles"
@@ -23,9 +26,9 @@ urlpatterns = [
     path("investor/onboarding/", InvestorOnboardingView.as_view(), name="investor-onboarding"),
 
     # Sponsor onboarding
-    path("sponsor/onboarding/", SponsorOnboardingView.as_view(), name="sponsor-onboarding"),
-
-    # Document upload (used during company verification)
+    path("sponsor/", SponsorOnboardingView.as_view(), name="sponsor-onboarding"),
+    path("sponsor/status/", VerificationStatusView.as_view(), name="sponsor-status"),
+    path("verification-documents/", VerificationDocumentUploadView.as_view(), name="verification-documents"),
     path("documents/upload/", DocumentUploadView.as_view(), name="document-upload"),
 
     # Verification status check (maps to "Verification Pending" screen)
@@ -33,4 +36,8 @@ urlpatterns = [
 
     # Public profile view
     path("<int:user_id>/", PublicProfileDetailView.as_view(), name="public-profile"),
+    
+    # Saved profiles
+    path("<int:user_id>/save/", ToggleSavedProfileView.as_view(), name="toggle-saved-profile"),
+    path("saved/", SavedProfileListView.as_view(), name="saved-profile-list"),
 ]

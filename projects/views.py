@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from core.permissions import IsSponsor, IsInvestor, IsEmailVerified
 from core.responses import success_response, created_response, error_response
+from notifications.models import Notification, NotificationType
 from .models import (
     Category, Project, ProjectTeamMember, ProjectDocument, 
     CollaborationRequest, ProjectStatusChoices, CollaborationRequestStatus,
@@ -18,6 +19,7 @@ from .serializers import (
     CollaborationRequestCreateSerializer, ProjectTeamMemberSerializer,
     ProjectDocumentSerializer, NDASignatureSerializer
 )
+from .services import CollaborationService
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ class PublicProjectListView(generics.ListAPIView):
             ProjectStatusChoices.ACTIVE, 
             ProjectStatusChoices.FUNDED,
             ProjectStatusChoices.COMPLETED
-        ])
+        ]).select_related('sponsor__user', 'industry').prefetch_related('categories')
 
 class PublicProjectDetailView(generics.RetrieveAPIView):
     """
@@ -52,7 +54,9 @@ class PublicProjectDetailView(generics.RetrieveAPIView):
     """
     permission_classes = (AllowAny,)
     serializer_class = ProjectDetailSerializer
-    queryset = Project.objects.all()
+    queryset = Project.objects.select_related('sponsor__user', 'industry').prefetch_related(
+        'categories', 'team_members', 'documents'
+    )
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -128,16 +132,39 @@ class SponsorCollaborationRequestUpdateView(APIView):
 
     def patch(self, request, pk):
         collab_request = get_object_or_404(CollaborationRequest, pk=pk, project__sponsor=request.user.sponsor_profile)
-        
         status_val = request.data.get('status')
-        if status_val not in [CollaborationRequestStatus.APPROVED, CollaborationRequestStatus.REJECTED]:
-            return error_response("Status must be APPROVED or REJECTED.")
         
+        if status_val not in dict(CollaborationRequestStatus.choices):
+            return error_response("Invalid status.")
+            
         collab_request.status = status_val
         collab_request.save(update_fields=['status'])
         
-        logger.info("Request %s marked as %s by Sponsor", pk, status_val)
-        return success_response(message=f"Request has been {status_val.lower()}.")
+        return success_response(data=CollaborationRequestSerializer(collab_request).data, message="Request updated.")
+
+
+class BulkConfirmInvestorsView(APIView):
+    """
+    POST /api/v1/projects/<id>/confirm-investors/
+    Sponsor confirms multiple investors for a project.
+    """
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+
+    def post(self, request, pk):
+        project = get_object_or_404(Project, pk=pk)
+        
+        # Verify the user is the sponsor of this project
+        if project.sponsor.user != request.user:
+            return error_response("You do not have permission to modify this project.")
+            
+        request_ids = request.data.get('request_ids', [])
+        if not request_ids or not isinstance(request_ids, list):
+            return error_response("A list of 'request_ids' is required.")
+            
+        count = CollaborationService.bulk_confirm_investors(project, request_ids)
+        
+        logger.info("Sponsor %s bulk confirmed %d investors for project %s", request.user.email, count, project.id)
+        return success_response(message=f"Successfully confirmed {count} investors.")
 
 
 # --- Investor Endpoints ---
