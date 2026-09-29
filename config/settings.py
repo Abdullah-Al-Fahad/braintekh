@@ -149,8 +149,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # ---------------------------------------------------------------------------
 # Email
 # ---------------------------------------------------------------------------
-EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='noreply@damaniai.com')
+EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+DEFAULT_FROM_EMAIL = env('MAIL_DEFAULT_SENDER', default='abdullah.al.fahad@gmail.com')
+EMAIL_HOST = env('MAIL_SERVER', default='smtp.gmail.com')
+EMAIL_PORT = env.int('MAIL_PORT', default=587)
+EMAIL_HOST_USER = env('MAIL_USERNAME', default='')
+EMAIL_HOST_PASSWORD = env('MAIL_PASSWORD', default='')
+EMAIL_USE_TLS = env.bool('MAIL_USE_TLS', default=True)
+EMAIL_USE_SSL = env.bool('MAIL_USE_SSL', default=False)
 
 # ---------------------------------------------------------------------------
 # Django REST Framework
@@ -210,8 +216,7 @@ SIMPLE_JWT = {
 # ---------------------------------------------------------------------------
 REST_AUTH = {
     'USE_JWT': True,
-    'JWT_AUTH_COOKIE': 'damani-auth',
-    'JWT_AUTH_REFRESH_COOKIE': 'damani-refresh-token',
+    'JWT_AUTH_HTTPONLY': False,
     'USER_DETAILS_SERIALIZER': 'users.serializers.UserDetailsSerializer',
     'LOGIN_SERIALIZER': 'authentication.serializers.LoginSerializer',
     'TOKEN_MODEL': None,
@@ -223,6 +228,7 @@ REST_AUTH = {
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # We handle verification via our custom OTP flow
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 
 # ---------------------------------------------------------------------------
 # CORS

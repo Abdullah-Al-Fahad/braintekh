@@ -5,7 +5,9 @@ from rest_framework import status, generics, filters
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
-from core.permissions import IsSponsor, IsInvestor, IsEmailVerified
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+
+from core.permissions import IsEmailVerified, IsInvestor, IsSponsor
 from core.responses import success_response, created_response, error_response
 from notifications.models import Notification, NotificationType
 from .models import (
@@ -25,6 +27,16 @@ logger = logging.getLogger(__name__)
 
 # --- Public Endpoints ---
 
+@extend_schema(
+    tags=["Projects"],
+    summary="Public Project Discover Feed",
+    description="Returns a paginated list of public, active projects. Supports filtering by industry and search.",
+    parameters=[
+        OpenApiParameter(name="search", description="Search projects by title or description", required=False, type=str),
+        OpenApiParameter(name="industry", description="Filter by industry ID", required=False, type=int),
+    ],
+    responses={200: ProjectListSerializer(many=True)}
+)
 class PublicProjectListView(generics.ListAPIView):
     """
     GET /api/v1/projects/
@@ -46,6 +58,12 @@ class PublicProjectListView(generics.ListAPIView):
             ProjectStatusChoices.COMPLETED
         ]).select_related('sponsor__user', 'industry').prefetch_related('categories')
 
+@extend_schema(
+    tags=["Projects"],
+    summary="Public Project Details",
+    description="Returns the full details of a single public project.",
+    responses={200: ProjectDetailSerializer}
+)
 class PublicProjectDetailView(generics.RetrieveAPIView):
     """
     GET /api/v1/projects/<id>/
@@ -66,6 +84,16 @@ class PublicProjectDetailView(generics.RetrieveAPIView):
 
 # --- Sponsor Endpoints ---
 
+@extend_schema(
+    tags=["Sponsor Projects"],
+    summary="List / Create Sponsor Projects",
+    description="GET: Lists all projects owned by the authenticated Sponsor.\nPOST: Creates a new project draft.",
+    request=ProjectCreateUpdateSerializer,
+    responses={
+        200: ProjectListSerializer(many=True),
+        201: ProjectDetailSerializer
+    }
+)
 class SponsorProjectListView(APIView):
     """
     GET /api/v1/projects/sponsor/
@@ -92,6 +120,16 @@ class SponsorProjectListView(APIView):
         return created_response(data=ProjectDetailSerializer(project, context={'request': request}).data, message="Project created successfully.")
 
 
+@extend_schema(
+    tags=["Sponsor Projects"],
+    summary="Update / Delete Sponsor Project",
+    description="Updates (PATCH) or Deletes (DELETE) a project owned by the sponsor.",
+    request=ProjectCreateUpdateSerializer,
+    responses={
+        200: ProjectDetailSerializer,
+        204: OpenApiResponse(description="Deleted")
+    }
+)
 class SponsorProjectDetailView(APIView):
     """
     PATCH /api/v1/projects/sponsor/<id>/
@@ -109,6 +147,12 @@ class SponsorProjectDetailView(APIView):
         return success_response(data=ProjectDetailSerializer(project, context={'request': request}).data, message="Project updated successfully.")
 
 
+@extend_schema(
+    tags=["Sponsor Collaboration"],
+    summary="List Collaboration Requests",
+    description="Returns all collaboration requests made by investors for a specific project.",
+    responses={200: CollaborationRequestSerializer(many=True)}
+)
 class SponsorCollaborationRequestListView(APIView):
     """
     GET /api/v1/projects/sponsor/<project_id>/requests/
@@ -123,6 +167,34 @@ class SponsorCollaborationRequestListView(APIView):
         return success_response(data=serializer.data)
 
 
+@extend_schema(
+    tags=["Sponsor Collaboration"],
+    summary="List All Recent Requests",
+    description="Returns all collaboration requests made by investors across all projects owned by this sponsor.",
+    responses={200: CollaborationRequestSerializer(many=True)}
+)
+class SponsorAllCollaborationRequestListView(generics.ListAPIView):
+    """
+    GET /api/v1/projects/sponsor/requests/
+    Sponsor views all requests across all their projects.
+    """
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+    serializer_class = CollaborationRequestSerializer
+
+    def get_queryset(self):
+        # Fetch all requests for any project owned by this sponsor, ordered by newest first
+        return CollaborationRequest.objects.filter(
+            project__sponsor=self.request.user.sponsor_profile
+        ).select_related('project', 'investor__user').order_by('-created_at')
+
+
+@extend_schema(
+    tags=["Sponsor Collaboration"],
+    summary="Update Collaboration Request",
+    description="Accept or Reject an investor's collaboration request.",
+    request={"application/json": {"type": "object", "properties": {"status": {"type": "string", "enum": ["APPROVED", "REJECTED"]}}}},
+    responses={200: CollaborationRequestSerializer}
+)
 class SponsorCollaborationRequestUpdateView(APIView):
     """
     PATCH /api/v1/projects/sponsor/requests/<id>/
@@ -143,6 +215,69 @@ class SponsorCollaborationRequestUpdateView(APIView):
         return success_response(data=CollaborationRequestSerializer(collab_request).data, message="Request updated.")
 
 
+@extend_schema(
+    tags=["Sponsor Collaboration Actions"],
+    summary="Approve Collaboration Request",
+    description="Transitions request status to APPROVED.",
+    request=None,
+    responses={200: OpenApiResponse(description="Request approved successfully")}
+)
+class SponsorCollaborationRequestApproveView(APIView):
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+
+    def post(self, request, pk):
+        collab_request = get_object_or_404(CollaborationRequest, pk=pk, project__sponsor=request.user.sponsor_profile)
+        collab_request.status = CollaborationRequestStatus.APPROVED
+        collab_request.save(update_fields=['status'])
+        return success_response(data={'id': collab_request.id, 'status': collab_request.status}, message="Request approved successfully")
+
+@extend_schema(
+    tags=["Sponsor Collaboration Actions"],
+    summary="Reject Collaboration Request",
+    description="Transitions request status to REJECTED.",
+    request=None,
+    responses={200: OpenApiResponse(description="Request rejected")}
+)
+class SponsorCollaborationRequestRejectView(APIView):
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+
+    def post(self, request, pk):
+        collab_request = get_object_or_404(CollaborationRequest, pk=pk, project__sponsor=request.user.sponsor_profile)
+        collab_request.status = CollaborationRequestStatus.REJECTED
+        collab_request.save(update_fields=['status'])
+        return success_response(data={'id': collab_request.id, 'status': collab_request.status}, message="Request rejected")
+
+@extend_schema(
+    tags=["Sponsor Collaboration Actions"],
+    summary="Mark Fund Received",
+    description="Confirms escrow or funding receipt.",
+    request=None,
+    responses={200: OpenApiResponse(description="Fund marked as received")}
+)
+class SponsorCollaborationRequestFundReceivedView(APIView):
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+
+    def post(self, request, pk):
+        collab_request = get_object_or_404(CollaborationRequest, pk=pk, project__sponsor=request.user.sponsor_profile)
+        # Using CONFIRMED as the internal status for "Received"
+        collab_request.status = CollaborationRequestStatus.CONFIRMED
+        collab_request.save(update_fields=['status'])
+        
+        # Also increment the project's raised_amount
+        project = collab_request.project
+        project.raised_amount += collab_request.proposed_budget
+        project.save(update_fields=['raised_amount'])
+        
+        return success_response(data={'id': collab_request.id, 'status': "RECEIVED"}, message="Fund marked as received")
+
+
+@extend_schema(
+    tags=["Sponsor Collaboration"],
+    summary="Bulk Confirm Investors",
+    description="Sponsor confirms a list of APPROVED investors. Generates notifications and system chat messages.",
+    request={"application/json": {"type": "object", "properties": {"request_ids": {"type": "array", "items": {"type": "integer"}}}}},
+    responses={200: OpenApiResponse(description="Investors confirmed successfully.")}
+)
 class BulkConfirmInvestorsView(APIView):
     """
     POST /api/v1/projects/<id>/confirm-investors/
@@ -169,6 +304,16 @@ class BulkConfirmInvestorsView(APIView):
 
 # --- Investor Endpoints ---
 
+@extend_schema(
+    tags=["Investor Collaboration"],
+    summary="Create Collaboration Request",
+    description="Investor submits a formal proposal (budget and text) to collaborate on a project.",
+    request=CollaborationRequestCreateSerializer,
+    responses={
+        201: CollaborationRequestSerializer,
+        400: OpenApiResponse(description="Already requested or invalid data")
+    }
+)
 class InvestorCollaborationRequestCreateView(APIView):
     """
     POST /api/v1/projects/<project_id>/requests/
@@ -198,6 +343,13 @@ class InvestorCollaborationRequestCreateView(APIView):
         )
 
 
+@extend_schema(
+    tags=["Investor Collaboration"],
+    summary="Sign NDA",
+    description="Investor signs an NDA for an APPROVED collaboration request.",
+    request=NDASignatureSerializer,
+    responses={200: OpenApiResponse(description="NDA signed successfully.")}
+)
 class InvestorSignNDAView(APIView):
     """
     POST /api/v1/projects/<project_id>/sign-nda/
@@ -234,6 +386,12 @@ class InvestorSignNDAView(APIView):
         return success_response(message="NDA signed successfully. You now have access to confidential documents.")
 
 
+@extend_schema(
+    tags=["Investor Collaboration"],
+    summary="My Requests",
+    description="Returns a list of all collaboration requests the authenticated investor has made.",
+    responses={200: CollaborationRequestSerializer(many=True)}
+)
 class InvestorMyRequestsListView(APIView):
     """
     GET /api/v1/projects/investor/my-requests/
@@ -249,6 +407,12 @@ class InvestorMyRequestsListView(APIView):
 
 # --- Bookmarks Endpoints ---
 
+@extend_schema(
+    tags=["Projects"],
+    summary="Toggle Bookmark / Save Project",
+    description="Saves or unsaves a project for the authenticated user.",
+    responses={200: OpenApiResponse(description="Project saved / removed.")}
+)
 class ToggleSavedProjectView(APIView):
     """
     POST /api/v1/projects/<id>/save/
@@ -268,6 +432,12 @@ class ToggleSavedProjectView(APIView):
         return success_response(message="Project saved successfully.")
 
 
+@extend_schema(
+    tags=["Projects"],
+    summary="Saved Projects Feed",
+    description="Returns a paginated list of projects the user has saved.",
+    responses={200: ProjectListSerializer(many=True)}
+)
 class SavedProjectListView(generics.ListAPIView):
     """
     GET /api/v1/projects/saved/

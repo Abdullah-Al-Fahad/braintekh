@@ -2,7 +2,9 @@ import logging
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import JSONParser
-from core.responses import success_response, error_response, created_response
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+
+from core.responses import created_response, error_response, success_response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from projects.models import Project
@@ -13,6 +15,12 @@ from .services import ChatService
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+@extend_schema(
+    tags=["Notifications"],
+    summary="List Notifications",
+    description="Returns a list of all notifications for the authenticated user, ordered by most recent.",
+    responses={200: NotificationSerializer(many=True)}
+)
 class NotificationListView(APIView):
     """
     GET /api/v1/notifications/
@@ -26,6 +34,12 @@ class NotificationListView(APIView):
         serializer = NotificationSerializer(notifications, many=True)
         return success_response(data=serializer.data)
 
+@extend_schema(
+    tags=["Notifications"],
+    summary="Mark All Notifications as Read",
+    description="Marks all unread notifications for the user as read.",
+    responses={200: OpenApiResponse(description="All notifications marked as read.")}
+)
 class MarkAllReadView(APIView):
     """
     POST /api/v1/notifications/mark-all-read/
@@ -36,6 +50,12 @@ class MarkAllReadView(APIView):
         Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
         return success_response(message="All notifications marked as read.")
 
+@extend_schema(
+    tags=["Notifications"],
+    summary="Mark Single Notification as Read",
+    description="Marks a specific notification as read by its ID.",
+    responses={200: OpenApiResponse(description="Notification marked as read.")}
+)
 class MarkReadView(APIView):
     """
     POST /api/v1/notifications/<id>/read/
@@ -48,6 +68,12 @@ class MarkReadView(APIView):
         notification.save(update_fields=['is_read'])
         return success_response(message="Notification marked as read.")
 
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="List Conversations",
+    description="Returns a list of all chat conversations the user is a participant in.",
+    responses={200: ConversationSerializer(many=True)}
+)
 class ConversationListView(APIView):
     """
     GET /api/v1/chat/conversations/
@@ -60,6 +86,12 @@ class ConversationListView(APIView):
         serializer = ConversationSerializer(conversations, many=True, context={'request': request})
         return success_response(data=serializer.data)
 
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="Get Conversation Details",
+    description="Returns details about a specific conversation.",
+    responses={200: ConversationSerializer}
+)
 class ConversationDetailView(APIView):
     """
     GET /api/v1/chat/conversations/<id>/
@@ -75,6 +107,12 @@ class ConversationDetailView(APIView):
         conversation = get_object_or_404(self.get_queryset(), pk=pk)
         return success_response(data=self.serializer_class(conversation, context={'request': request}).data)
 
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="List Messages in Conversation",
+    description="Returns all messages in a specific conversation ordered by creation time.",
+    responses={200: MessageSerializer(many=True)}
+)
 class MessageListView(APIView):
     """
     GET /api/v1/chat/conversations/<id>/messages/
@@ -88,6 +126,13 @@ class MessageListView(APIView):
         serializer = MessageSerializer(messages, many=True)
         return success_response(data=serializer.data)
 
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="Start Conversation",
+    description="Starts a new conversation. Can be 1-on-1 (target_user_id) or a group chat (project_id).",
+    request={"application/json": {"type": "object", "properties": {"target_user_id": {"type": "integer"}, "project_id": {"type": "integer"}}}},
+    responses={201: ConversationSerializer}
+)
 class ConversationCreateView(APIView):
     """
     POST /api/v1/chat/conversations/
@@ -114,6 +159,13 @@ class ConversationCreateView(APIView):
         except ValueError as e:
             return error_response(str(e))
 
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="Send Message",
+    description="Sends a new message in a conversation. May trigger VentureAI if it's a group chat.",
+    request={"application/json": {"type": "object", "properties": {"content": {"type": "string"}}}},
+    responses={201: MessageSerializer}
+)
 class MessageCreateView(APIView):
     """
     POST /api/v1/chat/conversations/<id>/messages/

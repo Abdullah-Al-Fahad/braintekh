@@ -16,9 +16,11 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from core.responses import success_response, created_response, error_response
 from core.throttles import AuthRateThrottle
+from users.serializers import UserDetailsSerializer
 from .models import OTPRecord, OTPPurpose
 from .serializers import (
     RegisterSerializer,
@@ -33,6 +35,15 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+@extend_schema(
+    tags=["Authentication"],
+    summary="Register a new user",
+    description="Creates a new user account and triggers an email verification OTP. The password should be strong and include at least 8 characters.",
+    responses={
+        201: OpenApiResponse(description="User registered successfully. An OTP has been sent."),
+        400: OpenApiResponse(description="Validation Error")
+    }
+)
 class RegisterView(generics.CreateAPIView):
     """
     POST /api/v1/auth/register/
@@ -54,6 +65,16 @@ class RegisterView(generics.CreateAPIView):
         return created_response(message="Account created. Please check your email for the verification code.")
 
 
+@extend_schema(
+    tags=["Authentication"],
+    summary="Verify Email OTP",
+    description="Verifies the OTP sent to the user's email during registration, login, or password reset.",
+    request=VerifyOTPSerializer,
+    responses={
+        200: OpenApiResponse(description="OTP verified successfully. Returns JWT access and refresh tokens if it's a login/registration OTP."),
+        400: OpenApiResponse(description="Invalid OTP or expired")
+    }
+)
 class VerifyOTPView(APIView):
     """
     POST /api/v1/auth/verify-otp/
@@ -98,11 +119,22 @@ class VerifyOTPView(APIView):
             data={
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
+                "user": UserDetailsSerializer(user, context={"request": request}).data,
             },
             message="Email verified successfully.",
         )
 
 
+@extend_schema(
+    tags=["Authentication"],
+    summary="Resend OTP",
+    description="Resends a 6-digit OTP to the user's email address if the previous one expired.",
+    request=ResendOTPSerializer,
+    responses={
+        200: OpenApiResponse(description="OTP resent successfully."),
+        400: OpenApiResponse(description="Validation error or user not found")
+    }
+)
 class ResendOTPView(APIView):
     """
     POST /api/v1/auth/resend-otp/
@@ -130,6 +162,16 @@ class ResendOTPView(APIView):
         return success_response(message="Verification code resent. Please check your email.")
 
 
+@extend_schema(
+    tags=["Authentication"],
+    summary="Request Password Reset",
+    description="Sends an OTP to the user's email address to initiate a password reset process.",
+    request=ForgotPasswordSerializer,
+    responses={
+        200: OpenApiResponse(description="Password reset OTP sent to email."),
+        400: OpenApiResponse(description="Validation error")
+    }
+)
 class ForgotPasswordView(APIView):
     """
     POST /api/v1/auth/forgot-password/
@@ -157,6 +199,16 @@ class ForgotPasswordView(APIView):
         return success_response(message="If an account with that email exists, a reset code has been sent.")
 
 
+@extend_schema(
+    tags=["Authentication"],
+    summary="Reset Password with OTP",
+    description="Resets the user's password using the OTP received via email.",
+    request=ResetPasswordSerializer,
+    responses={
+        200: OpenApiResponse(description="Password has been reset successfully."),
+        400: OpenApiResponse(description="Invalid OTP or passwords do not match")
+    }
+)
 class ResetPasswordView(APIView):
     """
     POST /api/v1/auth/reset-password/

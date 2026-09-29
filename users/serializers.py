@@ -39,11 +39,12 @@ class UserMeSerializer(serializers.ModelSerializer):
         return None
         
     def get_stats(self, obj):
-        if obj.role == RoleChoices.SPONSOR:
-            projects_count = obj.projects.count()
-            requests_count = sum(p.collaboration_requests.count() for p in obj.projects.all())
+        if obj.role == RoleChoices.SPONSOR and hasattr(obj, 'sponsor_profile'):
+            projects = obj.sponsor_profile.projects.all()
+            projects_count = projects.count()
+            requests_count = sum(p.collaboration_requests.count() for p in projects)
             # Dummy logic for funded
-            funded = sum(p.raised_amount for p in obj.projects.all() if p.raised_amount)
+            funded = sum(p.raised_amount for p in projects if p.raised_amount)
             
             return {
                 "projects": projects_count,

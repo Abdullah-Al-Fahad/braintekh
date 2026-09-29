@@ -1,0 +1,2394 @@
+openapi: 3.0.3
+info:
+  title: Damani AI / Synvest API
+  version: 1.0.0
+  description: Production-ready REST API for Damani AI platform (Authentication, Onboarding,
+    Investor & Sponsor workflows)
+paths:
+  /api/v1/auth/forgot-password/:
+    post:
+      operationId: api_v1_auth_forgot_password_create
+      description: Sends an OTP to the user's email address to initiate a password
+        reset process.
+      summary: Request Password Reset
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Password reset OTP sent to email.
+        '400':
+          description: Validation error
+  /api/v1/auth/login/:
+    post:
+      operationId: api_v1_auth_login_create
+      description: |-
+        Check the credentials and return the REST Token
+        if the credentials are valid and authenticated.
+        Calls Django Auth login method to register User ID
+        in Django session framework
+
+        Accept the following POST parameters: username, password
+        Return the REST Framework Token Object's key.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWT'
+          description: ''
+  /api/v1/auth/logout/:
+    post:
+      operationId: api_v1_auth_logout_create
+      description: |-
+        Calls Django logout method and delete the Token object
+        assigned to the current User object.
+
+        Accepts/Returns nothing.
+      tags:
+      - api
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestAuthDetail'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: api_v1_auth_register_create
+      description: Creates a new user account and triggers an email verification OTP.
+        The password should be strong and include at least 8 characters.
+      summary: Register a new user
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          description: User registered successfully. An OTP has been sent.
+        '400':
+          description: Validation Error
+  /api/v1/auth/resend-otp/:
+    post:
+      operationId: api_v1_auth_resend_otp_create
+      description: Resends a 6-digit OTP to the user's email address if the previous
+        one expired.
+      summary: Resend OTP
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendOTPRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResendOTPRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResendOTPRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: OTP resent successfully.
+        '400':
+          description: Validation error or user not found
+  /api/v1/auth/reset-password/:
+    post:
+      operationId: api_v1_auth_reset_password_create
+      description: Resets the user's password using the OTP received via email.
+      summary: Reset Password with OTP
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Password has been reset successfully.
+        '400':
+          description: Invalid OTP or passwords do not match
+  /api/v1/auth/token/refresh/:
+    post:
+      operationId: api_v1_auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/auth/verify-otp/:
+    post:
+      operationId: api_v1_auth_verify_otp_create
+      description: Verifies the OTP sent to the user's email during registration,
+        login, or password reset.
+      summary: Verify Email OTP
+      tags:
+      - Authentication
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOTPRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyOTPRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyOTPRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: OTP verified successfully. Returns JWT access and refresh tokens
+            if it's a login/registration OTP.
+        '400':
+          description: Invalid OTP or expired
+  /api/v1/notifications/:
+    get:
+      operationId: api_v1_notifications_list
+      description: Returns a list of all notifications for the authenticated user,
+        ordered by most recent.
+      summary: List Notifications
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+          description: ''
+  /api/v1/notifications/{id}/read/:
+    post:
+      operationId: api_v1_notifications_read_create
+      description: Marks a specific notification as read by its ID.
+      summary: Mark Single Notification as Read
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Notification marked as read.
+  /api/v1/notifications/chat/conversations/:
+    get:
+      operationId: api_v1_notifications_chat_conversations_list
+      description: Returns a list of all chat conversations the user is a participant
+        in.
+      summary: List Conversations
+      tags:
+      - Chat & Messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/notifications/chat/conversations/{id}/:
+    get:
+      operationId: api_v1_notifications_chat_conversations_retrieve
+      description: Returns details about a specific conversation.
+      summary: Get Conversation Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Chat & Messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/notifications/chat/conversations/{id}/messages/:
+    get:
+      operationId: api_v1_notifications_chat_conversations_messages_list
+      description: Returns all messages in a specific conversation ordered by creation
+        time.
+      summary: List Messages in Conversation
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Chat & Messages
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+          description: ''
+  /api/v1/notifications/chat/conversations/{id}/messages/send/:
+    post:
+      operationId: api_v1_notifications_chat_conversations_messages_send_create
+      description: Sends a new message in a conversation. May trigger VentureAI if
+        it's a group chat.
+      summary: Send Message
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Chat & Messages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+          description: ''
+  /api/v1/notifications/chat/conversations/start/:
+    post:
+      operationId: api_v1_notifications_chat_conversations_start_create
+      description: Starts a new conversation. Can be 1-on-1 (target_user_id) or a
+        group chat (project_id).
+      summary: Start Conversation
+      tags:
+      - Chat & Messages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target_user_id:
+                  type: integer
+                project_id:
+                  type: integer
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+          description: ''
+  /api/v1/notifications/mark-all-read/:
+    post:
+      operationId: api_v1_notifications_mark_all_read_create
+      description: Marks all unread notifications for the user as read.
+      summary: Mark All Notifications as Read
+      tags:
+      - Notifications
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read.
+  /api/v1/profiles/{user_id}/:
+    get:
+      operationId: api_v1_profiles_retrieve
+      description: Retrieves the public profile of any verified user by their ID.
+      summary: Get Public Profile
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Profiles
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Returns InvestorProfileSerializer or SponsorProfileSerializer
+        '404':
+          description: Profile not found or not verified.
+  /api/v1/profiles/{user_id}/save/:
+    post:
+      operationId: api_v1_profiles_save_create
+      description: Saves or unsaves a user's profile. Used for bookmarking investors
+        or sponsors.
+      summary: Toggle Bookmark / Save Profile
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Profiles
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile saved / removed from saved.
+  /api/v1/profiles/documents/upload/:
+    post:
+      operationId: api_v1_profiles_documents_upload_create
+      description: Uploads a generic document (e.g., pitch deck, portfolio) to the
+        user's profile.
+      summary: Upload Profile Document
+      tags:
+      - Profiles & Onboarding
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+          description: ''
+  /api/v1/profiles/industries/:
+    get:
+      operationId: api_v1_profiles_industries_list
+      description: Returns a list of available industries for use in profiles and
+        projects.
+      summary: Get Industries List
+      tags:
+      - Profiles
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Industry'
+          description: ''
+  /api/v1/profiles/investor/onboarding/:
+    get:
+      operationId: api_v1_profiles_investor_onboarding_retrieve
+      description: Completes the onboarding profile for an Investor.
+      summary: Investor Onboarding
+      tags:
+      - Profiles & Onboarding
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestorProfile'
+          description: ''
+    patch:
+      operationId: api_v1_profiles_investor_onboarding_partial_update
+      description: Completes the onboarding profile for an Investor.
+      summary: Investor Onboarding
+      tags:
+      - Profiles & Onboarding
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInvestorProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInvestorProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestorProfile'
+          description: ''
+  /api/v1/profiles/saved/:
+    get:
+      operationId: api_v1_profiles_saved_retrieve
+      description: Returns a list of all profiles bookmarked by the current user.
+      summary: Get Saved Profiles
+      tags:
+      - Profiles
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: List of saved profiles.
+  /api/v1/profiles/set-role/:
+    post:
+      operationId: api_v1_profiles_set_role_create
+      description: Sets the initial role of a newly registered user (INVESTOR or SPONSOR).
+        Can only be called once.
+      summary: Set User Role
+      tags:
+      - Profiles & Onboarding
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum:
+                  - INVESTOR
+                  - SPONSOR
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Role set successfully.
+        '400':
+          description: Invalid role or role already set.
+  /api/v1/profiles/sponsor/:
+    get:
+      operationId: api_v1_profiles_sponsor_retrieve
+      description: Completes the onboarding profile for a Sponsor, including company
+        details.
+      summary: Sponsor Onboarding
+      tags:
+      - Profiles & Onboarding
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorProfile'
+          description: ''
+    patch:
+      operationId: api_v1_profiles_sponsor_partial_update
+      description: Completes the onboarding profile for a Sponsor, including company
+        details.
+      summary: Sponsor Onboarding
+      tags:
+      - Profiles & Onboarding
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSponsorProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSponsorProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SponsorProfile'
+          description: ''
+  /api/v1/profiles/sponsor/status/:
+    get:
+      operationId: api_v1_profiles_sponsor_status_retrieve
+      description: Returns the current KYC verification status of the user (e.g.,
+        PENDING, VERIFIED, REJECTED).
+      summary: Check KYC Verification Status
+      tags:
+      - Profiles & Onboarding
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Verification status.
+  /api/v1/profiles/verification-documents/:
+    post:
+      operationId: api_v1_profiles_verification_documents_create
+      description: Uploads identity documents for manual admin KYC verification.
+      summary: Upload Verification Document (KYC)
+      tags:
+      - Profiles & Onboarding
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DocumentRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          description: Document uploaded successfully. Verification is pending.
+  /api/v1/profiles/verification-status/:
+    get:
+      operationId: api_v1_profiles_verification_status_retrieve
+      description: Returns the current KYC verification status of the user (e.g.,
+        PENDING, VERIFIED, REJECTED).
+      summary: Check KYC Verification Status
+      tags:
+      - Profiles & Onboarding
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Verification status.
+  /api/v1/projects/:
+    get:
+      operationId: api_v1_projects_list
+      description: Returns a paginated list of public, active projects. Supports filtering
+        by industry and search.
+      summary: Public Project Discover Feed
+      parameters:
+      - in: query
+        name: industry
+        schema:
+          type: integer
+        description: Filter by industry ID
+      - in: query
+        name: industry__name
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search projects by title or description
+      tags:
+      - Projects
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjectListList'
+          description: ''
+  /api/v1/projects/{id}/:
+    get:
+      operationId: api_v1_projects_retrieve
+      description: Returns the full details of a single public project.
+      summary: Public Project Details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Projects
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+          description: ''
+  /api/v1/projects/{id}/confirm-investors/:
+    post:
+      operationId: api_v1_projects_confirm_investors_create
+      description: Sponsor confirms a list of APPROVED investors. Generates notifications
+        and system chat messages.
+      summary: Bulk Confirm Investors
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Sponsor Collaboration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                request_ids:
+                  type: array
+                  items:
+                    type: integer
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Investors confirmed successfully.
+  /api/v1/projects/{id}/save/:
+    post:
+      operationId: api_v1_projects_save_create
+      description: Saves or unsaves a project for the authenticated user.
+      summary: Toggle Bookmark / Save Project
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Projects
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Project saved / removed.
+  /api/v1/projects/{project_id}/requests/:
+    post:
+      operationId: api_v1_projects_requests_create
+      description: Investor submits a formal proposal (budget and text) to collaborate
+        on a project.
+      summary: Create Collaboration Request
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Investor Collaboration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollaborationRequestCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollaborationRequestCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollaborationRequestCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollaborationRequest'
+          description: ''
+        '400':
+          description: Already requested or invalid data
+  /api/v1/projects/{project_id}/sign-nda/:
+    post:
+      operationId: api_v1_projects_sign_nda_create
+      description: Investor signs an NDA for an APPROVED collaboration request.
+      summary: Sign NDA
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Investor Collaboration
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/NDASignatureRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/NDASignatureRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: NDA signed successfully.
+  /api/v1/projects/investor/my-requests/:
+    get:
+      operationId: api_v1_projects_investor_my_requests_list
+      description: Returns a list of all collaboration requests the authenticated
+        investor has made.
+      summary: My Requests
+      tags:
+      - Investor Collaboration
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CollaborationRequest'
+          description: ''
+  /api/v1/projects/saved/:
+    get:
+      operationId: api_v1_projects_saved_list
+      description: Returns a paginated list of projects the user has saved.
+      summary: Saved Projects Feed
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Projects
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProjectListList'
+          description: ''
+  /api/v1/projects/sponsor/:
+    get:
+      operationId: api_v1_projects_sponsor_list
+      description: |-
+        GET: Lists all projects owned by the authenticated Sponsor.
+        POST: Creates a new project draft.
+      summary: List / Create Sponsor Projects
+      tags:
+      - Sponsor Projects
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectList'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+          description: ''
+    post:
+      operationId: api_v1_projects_sponsor_create
+      description: |-
+        GET: Lists all projects owned by the authenticated Sponsor.
+        POST: Creates a new project draft.
+      summary: List / Create Sponsor Projects
+      tags:
+      - Sponsor Projects
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateUpdateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProjectList'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+          description: ''
+  /api/v1/projects/sponsor/{id}/:
+    patch:
+      operationId: api_v1_projects_sponsor_partial_update
+      description: Updates (PATCH) or Deletes (DELETE) a project owned by the sponsor.
+      summary: Update / Delete Sponsor Project
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Sponsor Projects
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectCreateUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProjectCreateUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+          description: ''
+        '204':
+          description: Deleted
+  /api/v1/projects/sponsor/{project_id}/requests/:
+    get:
+      operationId: api_v1_projects_sponsor_requests_list
+      description: Returns all collaboration requests made by investors for a specific
+        project.
+      summary: List Collaboration Requests
+      parameters:
+      - in: path
+        name: project_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Sponsor Collaboration
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CollaborationRequest'
+          description: ''
+  /api/v1/projects/sponsor/requests/{id}/:
+    patch:
+      operationId: api_v1_projects_sponsor_requests_partial_update
+      description: Accept or Reject an investor's collaboration request.
+      summary: Update Collaboration Request
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - Sponsor Collaboration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                  - APPROVED
+                  - REJECTED
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollaborationRequest'
+          description: ''
+  /api/v1/users/change-password/:
+    post:
+      operationId: api_v1_users_change_password_create
+      description: Changes the authenticated user's password. Requires the old password
+        and a new, strong password.
+      summary: Change Password
+      tags:
+      - User Settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Password changed successfully.
+        '400':
+          description: Invalid old password or weak new password.
+  /api/v1/users/me/:
+    get:
+      operationId: api_v1_users_me_retrieve
+      description: Returns the current authenticated user's core data, nested role-specific
+        profile (Sponsor or Investor), and aggregated platform statistics.
+      summary: Get Current User Profile & Stats
+      tags:
+      - User Settings
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMe'
+          description: ''
+    patch:
+      operationId: api_v1_users_me_partial_update
+      description: Updates core user settings like push notifications and subscription
+        tier.
+      summary: Update Current User Settings
+      tags:
+      - User Settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetailsRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetailsRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserDetailsRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetails'
+          description: ''
+components:
+  schemas:
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+      required:
+      - id
+      - name
+    ChangePasswordRequest:
+      type: object
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          minLength: 1
+      required:
+      - current_password
+      - new_password
+    CollaborationRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        project:
+          type: string
+          readOnly: true
+        investor:
+          type: string
+          readOnly: true
+        proposed_budget:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        proposal_text:
+          type: string
+          description: Message from the investor
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CollaborationStatusEnum'
+          readOnly: true
+        nda_signed:
+          type: boolean
+          readOnly: true
+          description: Has the investor signed the NDA for this project?
+        nda_digital_signature:
+          type: string
+          readOnly: true
+          description: Typed full name for NDA signature
+        nda_signature_image:
+          type: string
+          format: uri
+          nullable: true
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - investor
+      - nda_digital_signature
+      - nda_signature_image
+      - nda_signed
+      - project
+      - proposed_budget
+      - status
+    CollaborationRequestCreateRequest:
+      type: object
+      properties:
+        proposed_budget:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        proposal_text:
+          type: string
+          description: Message from the investor
+      required:
+      - proposed_budget
+    CollaborationStatusEnum:
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+      - CONFIRMED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `APPROVED` - Approved
+        * `REJECTED` - Rejected
+        * `CONFIRMED` - Confirmed
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        project:
+          type: integer
+          nullable: true
+        is_group:
+          type: boolean
+        name:
+          type: string
+          readOnly: true
+        last_message:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - id
+      - last_message
+      - name
+      - updated_at
+    Document:
+      type: object
+      description: Handles document uploads and listing.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        document_type:
+          $ref: '#/components/schemas/DocumentTypeEnum'
+        file:
+          type: string
+          format: uri
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - document_type
+      - file
+      - id
+    DocumentRequest:
+      type: object
+      description: Handles document uploads and listing.
+      properties:
+        document_type:
+          $ref: '#/components/schemas/DocumentTypeEnum'
+        file:
+          type: string
+          format: binary
+      required:
+      - document_type
+      - file
+    DocumentTypeEnum:
+      enum:
+      - BUSINESS_LICENSE
+      - TAX_DOCUMENT
+      - OTHER
+      type: string
+      description: |-
+        * `BUSINESS_LICENSE` - Business License
+        * `TAX_DOCUMENT` - Tax Document
+        * `OTHER` - Other
+    ForgotPasswordRequest:
+      type: object
+      description: Validates the email for a password-reset OTP request.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    Industry:
+      type: object
+      description: Read-only serializer for listing available industries.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+      required:
+      - id
+      - name
+    InvestorProfile:
+      type: object
+      description: |-
+        Full read/write serializer for the InvestorProfile.
+
+        - first_name / last_name are sourced from User but writable here.
+        - email is sourced from User and is always read-only.
+        - verification_status is read-only (managed internally by admin/compliance).
+      properties:
+        investor_type:
+          $ref: '#/components/schemas/InvestorTypeEnum'
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+          readOnly: true
+        phone:
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 255
+        company_name:
+          type: string
+          description: Optional for Individual investors.
+          maxLength: 255
+        position_title:
+          type: string
+          maxLength: 255
+        bio:
+          type: string
+        profile_photo:
+          type: string
+          format: uri
+          nullable: true
+        industries:
+          type: array
+          items:
+            type: integer
+        verification_status:
+          allOf:
+          - $ref: '#/components/schemas/VerificationStatusEnum'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - email
+      - updated_at
+      - verification_status
+    InvestorTypeEnum:
+      enum:
+      - INDIVIDUAL
+      - COMPANY
+      - NONE
+      type: string
+      description: |-
+        * `INDIVIDUAL` - Individual
+        * `COMPANY` - Company
+        * `NONE` - None
+    JWT:
+      type: object
+      description: Serializer for JWT authentication.
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserDetails'
+      required:
+      - access
+      - refresh
+      - user
+    LoginRequest:
+      type: object
+      description: |-
+        Extends the base dj-rest-auth LoginSerializer.
+        Removes the `username` field since we use email-only auth.
+      properties:
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        password:
+          type: string
+          minLength: 1
+      required:
+      - password
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        conversation:
+          type: integer
+          readOnly: true
+          nullable: true
+        sender_name:
+          type: string
+          readOnly: true
+        sender_email:
+          type: string
+          readOnly: true
+        content:
+          type: string
+        is_ai_generated:
+          type: boolean
+          readOnly: true
+          description: True if this message was generated by VentureAI
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - content
+      - conversation
+      - created_at
+      - id
+      - is_ai_generated
+      - sender_email
+      - sender_name
+    NDASignatureRequest:
+      type: object
+      properties:
+        digital_signature:
+          type: string
+          minLength: 1
+          maxLength: 255
+        signature_image:
+          type: string
+          format: binary
+      required:
+      - digital_signature
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        message:
+          type: string
+        notification_type:
+          $ref: '#/components/schemas/NotificationTypeEnum'
+        is_read:
+          type: boolean
+        related_object_id:
+          type: string
+          maxLength: 100
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - message
+      - title
+    NotificationTypeEnum:
+      enum:
+      - COLLAB_REQUEST
+      - MESSAGE
+      - NDA_APPROVED
+      - PROFILE_VERIFIED
+      - SYSTEM
+      type: string
+      description: |-
+        * `COLLAB_REQUEST` - Collaboration Request
+        * `MESSAGE` - New Message
+        * `NDA_APPROVED` - NDA Approved
+        * `PROFILE_VERIFIED` - Profile Verified
+        * `SYSTEM` - System Notification
+    PaginatedProjectListList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectList'
+    PatchedInvestorProfileRequest:
+      type: object
+      description: |-
+        Full read/write serializer for the InvestorProfile.
+
+        - first_name / last_name are sourced from User but writable here.
+        - email is sourced from User and is always read-only.
+        - verification_status is read-only (managed internally by admin/compliance).
+      properties:
+        investor_type:
+          $ref: '#/components/schemas/InvestorTypeEnum'
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 255
+        company_name:
+          type: string
+          description: Optional for Individual investors.
+          maxLength: 255
+        position_title:
+          type: string
+          maxLength: 255
+        bio:
+          type: string
+        profile_photo:
+          type: string
+          format: binary
+          nullable: true
+        industries:
+          type: array
+          items:
+            type: integer
+    PatchedProjectCreateUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        location:
+          type: string
+          minLength: 1
+          description: e.g. Austin, TX
+          maxLength: 255
+        country:
+          type: string
+          maxLength: 100
+        short_description:
+          type: string
+          minLength: 1
+          description: One-line pitch
+          maxLength: 120
+        category_ids:
+          type: array
+          items:
+            type: integer
+        industry:
+          type: integer
+          nullable: true
+        funding_goal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Total amount to raise
+        funding_stage:
+          type: string
+          description: e.g. Seed, Series A
+          maxLength: 100
+        minimum_investment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Minimum Investment Amount (MIA)
+        target_roi:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Target ROI percentage (e.g., 18.00 for 18%)
+        timeline_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Overall project timeline in months
+        potential_monthly_revenue:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        hold_period_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Hold period in months
+        timeline_to_operations_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Timeline to operations in months
+        business_description:
+          type: string
+          description: Full Description
+        current_status:
+          type: string
+          title: What's Happening Now
+        next_milestones:
+          type: string
+        use_of_funds:
+          type: string
+        skin_in_the_game:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Sponsor's invested amount
+        team_members_text:
+          type: string
+          description: Names, comma separated
+          maxLength: 500
+        confidentiality_agreement_text:
+          type: string
+          description: Detailed explanation of the confidentiality agreement
+        cover_image:
+          type: string
+          format: binary
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status19aEnum'
+    PatchedSponsorProfileRequest:
+      type: object
+      description: |-
+        Full read/write serializer for the SponsorProfile.
+
+        Documents are embedded as read-only nested objects.
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        legal_company_name:
+          type: string
+          maxLength: 255
+        registration_number:
+          type: string
+          maxLength: 100
+        business_address:
+          type: string
+        company_website:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 255
+        position_title:
+          type: string
+          maxLength: 255
+        bio:
+          type: string
+        profile_photo:
+          type: string
+          format: binary
+          nullable: true
+    PatchedUserDetailsRequest:
+      type: object
+      description: |-
+        Read-only serializer for the authenticated user's core info.
+        Used by dj-rest-auth's `/user/` endpoint and JWT payload.
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        push_notifications_enabled:
+          type: boolean
+        subscription_tier:
+          $ref: '#/components/schemas/SubscriptionTierEnum'
+    ProjectCreateUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        location:
+          type: string
+          minLength: 1
+          description: e.g. Austin, TX
+          maxLength: 255
+        country:
+          type: string
+          maxLength: 100
+        short_description:
+          type: string
+          minLength: 1
+          description: One-line pitch
+          maxLength: 120
+        category_ids:
+          type: array
+          items:
+            type: integer
+        industry:
+          type: integer
+          nullable: true
+        funding_goal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Total amount to raise
+        funding_stage:
+          type: string
+          description: e.g. Seed, Series A
+          maxLength: 100
+        minimum_investment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Minimum Investment Amount (MIA)
+        target_roi:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Target ROI percentage (e.g., 18.00 for 18%)
+        timeline_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Overall project timeline in months
+        potential_monthly_revenue:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        hold_period_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Hold period in months
+        timeline_to_operations_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Timeline to operations in months
+        business_description:
+          type: string
+          description: Full Description
+        current_status:
+          type: string
+          title: What's Happening Now
+        next_milestones:
+          type: string
+        use_of_funds:
+          type: string
+        skin_in_the_game:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Sponsor's invested amount
+        team_members_text:
+          type: string
+          description: Names, comma separated
+          maxLength: 500
+        confidentiality_agreement_text:
+          type: string
+          description: Detailed explanation of the confidentiality agreement
+        cover_image:
+          type: string
+          format: binary
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status19aEnum'
+      required:
+      - funding_goal
+      - location
+      - minimum_investment
+      - short_description
+      - target_roi
+      - timeline_months
+      - title
+    ProjectDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          description: e.g. Austin, TX
+          maxLength: 255
+        country:
+          type: string
+          maxLength: 100
+        short_description:
+          type: string
+          description: One-line pitch
+          maxLength: 120
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+          readOnly: true
+        industry:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status19aEnum'
+        funding_goal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Total amount to raise
+        funding_stage:
+          type: string
+          description: e.g. Seed, Series A
+          maxLength: 100
+        raised_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        minimum_investment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Minimum Investment Amount (MIA)
+        target_roi:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Target ROI percentage (e.g., 18.00 for 18%)
+        potential_monthly_revenue:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        hold_period_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Hold period in months
+        timeline_to_operations_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Timeline to operations in months
+        timeline_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Overall project timeline in months
+        cover_image:
+          type: string
+          format: uri
+          nullable: true
+        sponsor:
+          type: string
+          readOnly: true
+        is_saved:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        business_description:
+          type: string
+          description: Full Description
+        current_status:
+          type: string
+          title: What's Happening Now
+        next_milestones:
+          type: string
+        use_of_funds:
+          type: string
+        skin_in_the_game:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Sponsor's invested amount
+        team_members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectTeamMember'
+          readOnly: true
+        team_members_text:
+          type: string
+          description: Names, comma separated
+          maxLength: 500
+        confidentiality_agreement_text:
+          type: string
+          description: Detailed explanation of the confidentiality agreement
+        documents:
+          type: string
+          readOnly: true
+      required:
+      - categories
+      - created_at
+      - documents
+      - funding_goal
+      - id
+      - is_saved
+      - location
+      - minimum_investment
+      - short_description
+      - sponsor
+      - target_roi
+      - team_members
+      - timeline_months
+      - title
+    ProjectList:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          description: e.g. Austin, TX
+          maxLength: 255
+        country:
+          type: string
+          maxLength: 100
+        short_description:
+          type: string
+          description: One-line pitch
+          maxLength: 120
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+          readOnly: true
+        industry:
+          type: integer
+          nullable: true
+        status:
+          $ref: '#/components/schemas/Status19aEnum'
+        funding_goal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Total amount to raise
+        funding_stage:
+          type: string
+          description: e.g. Seed, Series A
+          maxLength: 100
+        raised_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        minimum_investment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          description: Minimum Investment Amount (MIA)
+        target_roi:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Target ROI percentage (e.g., 18.00 for 18%)
+        potential_monthly_revenue:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          nullable: true
+        hold_period_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Hold period in months
+        timeline_to_operations_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+          description: Timeline to operations in months
+        timeline_months:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          description: Overall project timeline in months
+        cover_image:
+          type: string
+          format: uri
+          nullable: true
+        sponsor:
+          type: string
+          readOnly: true
+        is_saved:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - categories
+      - created_at
+      - funding_goal
+      - id
+      - is_saved
+      - location
+      - minimum_investment
+      - short_description
+      - sponsor
+      - target_roi
+      - timeline_months
+      - title
+    ProjectTeamMember:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        role:
+          type: string
+          maxLength: 255
+      required:
+      - id
+      - name
+      - role
+    RegisterRequest:
+      type: object
+      description: Validates and creates a new user account.
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          minLength: 1
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - first_name
+      - last_name
+      - password
+    ResendOTPRequest:
+      type: object
+      description: Validates the email for which to resend an OTP.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    ResetPasswordRequest:
+      type: object
+      description: Validates the OTP and new password for a password reset.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - code
+      - email
+      - new_password
+    RestAuthDetail:
+      type: object
+      properties:
+        detail:
+          type: string
+          readOnly: true
+      required:
+      - detail
+    RoleEnum:
+      enum:
+      - SPONSOR
+      - INVESTOR
+      - NONE
+      type: string
+      description: |-
+        * `SPONSOR` - Sponsor
+        * `INVESTOR` - Investor
+        * `NONE` - None
+    SponsorProfile:
+      type: object
+      description: |-
+        Full read/write serializer for the SponsorProfile.
+
+        Documents are embedded as read-only nested objects.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+          readOnly: true
+        legal_company_name:
+          type: string
+          maxLength: 255
+        registration_number:
+          type: string
+          maxLength: 100
+        business_address:
+          type: string
+        company_website:
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 500
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 20
+        country:
+          type: string
+          maxLength: 100
+        location:
+          type: string
+          maxLength: 255
+        position_title:
+          type: string
+          maxLength: 255
+        bio:
+          type: string
+        profile_photo:
+          type: string
+          format: uri
+          nullable: true
+        verification_status:
+          allOf:
+          - $ref: '#/components/schemas/VerificationStatusEnum'
+          readOnly: true
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Document'
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - documents
+      - email
+      - id
+      - updated_at
+      - verification_status
+    Status19aEnum:
+      enum:
+      - DRAFT
+      - ACTIVE
+      - FUNDED
+      - COMPLETED
+      - TERMINATED
+      - CANCELLED
+      type: string
+      description: |-
+        * `DRAFT` - Draft
+        * `ACTIVE` - Active
+        * `FUNDED` - Funded
+        * `COMPLETED` - Completed
+        * `TERMINATED` - Terminated
+        * `CANCELLED` - Cancelled
+    SubscriptionTierEnum:
+      enum:
+      - FREE
+      - PRO
+      type: string
+      description: |-
+        * `FREE` - Free
+        * `PRO` - Pro
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    UserDetails:
+      type: object
+      description: |-
+        Read-only serializer for the authenticated user's core info.
+        Used by dj-rest-auth's `/user/` endpoint and JWT payload.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        full_name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_email_verified:
+          type: boolean
+          readOnly: true
+        push_notifications_enabled:
+          type: boolean
+        subscription_tier:
+          $ref: '#/components/schemas/SubscriptionTierEnum'
+      required:
+      - email
+      - first_name
+      - full_name
+      - id
+      - is_email_verified
+      - last_name
+    UserMe:
+      type: object
+      description: Serializer for the GET /me/ endpoint. Includes nested profiles
+        and stats.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        is_email_verified:
+          type: boolean
+          readOnly: true
+        push_notifications_enabled:
+          type: boolean
+        subscription_tier:
+          $ref: '#/components/schemas/SubscriptionTierEnum'
+        profile:
+          type: string
+          readOnly: true
+        stats:
+          type: string
+          readOnly: true
+      required:
+      - email
+      - first_name
+      - id
+      - is_email_verified
+      - last_name
+      - profile
+      - stats
+    VerificationStatusEnum:
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+      type: string
+      description: |-
+        * `PENDING` - Pending
+        * `APPROVED` - Approved
+        * `REJECTED` - Rejected
+    VerifyOTPRequest:
+      type: object
+      description: Validates the fields needed to verify an OTP code.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+      required:
+      - code
+      - email
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -16,11 +16,13 @@ import logging
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from core.permissions import IsEmailVerified, IsInvestor, IsSponsor
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+
 from core.responses import created_response, error_response, success_response
 from users.models import RoleChoices
 from .models import Document, Industry, InvestorProfile, SavedProfile, SponsorProfile, DocumentTypeChoices, VerificationStatusChoices
@@ -35,6 +37,16 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    tags=["Profiles & Onboarding"],
+    summary="Set User Role",
+    description="Sets or updates the initial role of a user (INVESTOR or SPONSOR). Safely handles switching roles if the user made a mistake during onboarding.",
+    request={"application/json": {"type": "object", "properties": {"role": {"type": "string", "enum": ["INVESTOR", "SPONSOR"]}}}},
+    responses={
+        200: OpenApiResponse(description="Role set successfully."),
+        400: OpenApiResponse(description="Invalid role.")
+    }
+)
 class SetRoleView(APIView):
     """
     POST /api/v1/profiles/set-role/
@@ -47,26 +59,36 @@ class SetRoleView(APIView):
     permission_classes = (IsAuthenticated, IsEmailVerified)
 
     def post(self, request):
-        if request.user.role != RoleChoices.NONE:
-            return error_response("Your role has already been set and cannot be changed.")
-
         serializer = SetRoleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        role = serializer.validated_data["role"]
+        new_role = serializer.validated_data["role"]
 
-        request.user.role = role
+        if request.user.role == new_role:
+            return success_response(message=f"Role is already set to {new_role}.")
+
+        # Update the user's role
+        request.user.role = new_role
         request.user.save(update_fields=["role"])
 
-        # Create the matching profile — idempotent via get_or_create
-        if role == RoleChoices.INVESTOR:
+        # Handle profile swapping to prevent orphaned data
+        if new_role == RoleChoices.INVESTOR:
+            SponsorProfile.objects.filter(user=request.user).delete()
             InvestorProfile.objects.get_or_create(user=request.user)
-        elif role == RoleChoices.SPONSOR:
+        elif new_role == RoleChoices.SPONSOR:
+            InvestorProfile.objects.filter(user=request.user).delete()
             SponsorProfile.objects.get_or_create(user=request.user)
 
-        logger.info("User %s selected role: %s", request.user.email, role)
-        return success_response(message=f"Role set to {role}. You can now complete your profile.")
+        logger.info("User %s switched/selected role: %s", request.user.email, new_role)
+        return success_response(message=f"Role set to {new_role}. You can now complete your profile.")
 
 
+@extend_schema(
+    tags=["Profiles & Onboarding"],
+    summary="Investor Onboarding",
+    description="Completes the onboarding profile for an Investor.",
+    request=InvestorProfileSerializer,
+    responses={200: InvestorProfileSerializer}
+)
 class InvestorOnboardingView(APIView):
     """
     GET  /api/v1/profiles/investor/onboarding/  — Fetch investor profile.
@@ -76,7 +98,7 @@ class InvestorOnboardingView(APIView):
     """
 
     permission_classes = (IsAuthenticated, IsEmailVerified, IsInvestor)
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def _get_profile(self, user) -> InvestorProfile:
         return get_object_or_404(InvestorProfile, user=user)
@@ -95,6 +117,13 @@ class InvestorOnboardingView(APIView):
         return success_response(data=serializer.data, message="Profile updated successfully.")
 
 
+@extend_schema(
+    tags=["Profiles & Onboarding"],
+    summary="Sponsor Onboarding",
+    description="Completes the onboarding profile for a Sponsor, including company details.",
+    request=SponsorProfileSerializer,
+    responses={200: SponsorProfileSerializer}
+)
 class SponsorOnboardingView(APIView):
     """
     GET  /api/v1/profiles/sponsor/onboarding/  — Fetch sponsor profile.
@@ -104,7 +133,7 @@ class SponsorOnboardingView(APIView):
     """
 
     permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
-    parser_classes = (MultiPartParser, FormParser)
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def _get_profile(self, user) -> SponsorProfile:
         return get_object_or_404(SponsorProfile, user=user)
@@ -123,6 +152,13 @@ class SponsorOnboardingView(APIView):
         return success_response(data=serializer.data, message="Profile updated successfully.")
 
 
+@extend_schema(
+    tags=["Profiles & Onboarding"],
+    summary="Upload Profile Document",
+    description="Uploads a generic document (e.g., pitch deck, portfolio) to the user's profile.",
+    request=DocumentSerializer,
+    responses={201: DocumentSerializer}
+)
 class DocumentUploadView(APIView):
     """
     POST /api/v1/profiles/documents/upload/
@@ -152,6 +188,15 @@ class DocumentUploadView(APIView):
         return created_response(data=serializer.data, message="Document uploaded successfully.")
 
 
+@extend_schema(
+    tags=["Profiles"],
+    summary="Get Public Profile",
+    description="Retrieves the public profile of any verified user by their ID.",
+    responses={
+        200: OpenApiResponse(description="Returns InvestorProfileSerializer or SponsorProfileSerializer"),
+        404: OpenApiResponse(description="Profile not found or not verified.")
+    }
+)
 class PublicProfileDetailView(APIView):
     """
     GET /api/v1/profiles/<user_id>/
@@ -181,6 +226,12 @@ class PublicProfileDetailView(APIView):
             
         return success_response(data=data)
 
+@extend_schema(
+    tags=["Profiles"],
+    summary="Toggle Bookmark / Save Profile",
+    description="Saves or unsaves a user's profile. Used for bookmarking investors or sponsors.",
+    responses={200: OpenApiResponse(description="Profile saved / removed from saved.")}
+)
 class ToggleSavedProfileView(APIView):
     """
     POST /api/v1/profiles/<user_id>/save/
@@ -203,6 +254,13 @@ class ToggleSavedProfileView(APIView):
             
         return success_response(message="Profile saved successfully.")
 
+@extend_schema(
+    tags=["Profiles & Onboarding"],
+    summary="Upload Verification Document (KYC)",
+    description="Uploads identity documents for manual admin KYC verification.",
+    request=DocumentSerializer,
+    responses={201: OpenApiResponse(description="Document uploaded successfully. Verification is pending.")}
+)
 class VerificationDocumentUploadView(APIView):
     """
     POST /api/v1/profiles/verification-documents/
@@ -237,6 +295,12 @@ class VerificationDocumentUploadView(APIView):
         return created_response(message="Document uploaded successfully. Verification is pending.")
 
 
+@extend_schema(
+    tags=["Profiles"],
+    summary="Get Saved Profiles",
+    description="Returns a list of all profiles bookmarked by the current user.",
+    responses={200: OpenApiResponse(description="List of saved profiles.")}
+)
 class SavedProfileListView(APIView):
     """
     GET /api/v1/profiles/saved/
@@ -264,6 +328,12 @@ class SavedProfileListView(APIView):
         return success_response(data=results)
 
 
+@extend_schema(
+    tags=["Profiles"],
+    summary="Get Industries List",
+    description="Returns a list of available industries for use in profiles and projects.",
+    responses={200: IndustrySerializer(many=True)}
+)
 class IndustryListView(APIView):
     """
     GET /api/v1/profiles/industries/
@@ -280,6 +350,12 @@ class IndustryListView(APIView):
         return success_response(data=serializer.data)
 
 
+@extend_schema(
+    tags=["Profiles & Onboarding"],
+    summary="Check KYC Verification Status",
+    description="Returns the current KYC verification status of the user (e.g., PENDING, VERIFIED, REJECTED).",
+    responses={200: OpenApiResponse(description="Verification status.")}
+)
 class VerificationStatusView(APIView):
     """
     GET /api/v1/profiles/verification-status/

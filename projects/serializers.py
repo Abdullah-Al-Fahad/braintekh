@@ -27,11 +27,15 @@ class ProjectListSerializer(serializers.ModelSerializer):
     sponsor = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
 
+    progress = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    industry = serializers.StringRelatedField() # Make industry a string as requested
+
     class Meta:
         model = Project
         fields = [
-            'id', 'title', 'location', 'country', 'short_description', 'categories', 'industry',
-            'status', 'funding_goal', 'funding_stage', 'raised_amount', 'minimum_investment',
+            'id', 'title', 'location', 'country', 'short_description', 'categories', 'category', 'industry',
+            'status', 'funding_goal', 'funding_stage', 'raised_amount', 'progress', 'minimum_investment',
             'target_roi', 'potential_monthly_revenue', 'hold_period_months', 
             'timeline_to_operations_months', 'timeline_months', 
             'cover_image', 'sponsor', 'is_saved', 'created_at'
@@ -51,15 +55,33 @@ class ProjectListSerializer(serializers.ModelSerializer):
             return obj.saved_by.filter(user=request.user).exists()
         return False
 
+    def get_progress(self, obj):
+        if obj.funding_goal and float(obj.funding_goal) > 0:
+            # Safely calculate progress by ensuring both are floats
+            prog = float(obj.raised_amount) / float(obj.funding_goal)
+            return float(round(prog, 2))
+        return 0.0
+
+    def get_category(self, obj):
+        cat = obj.categories.first()
+        if cat:
+            return {"id": cat.id, "name": cat.name}
+        return None
+
 class ProjectDetailSerializer(ProjectListSerializer):
     team_members = ProjectTeamMemberSerializer(many=True, read_only=True)
     documents = serializers.SerializerMethodField()
     
+    investors_count = serializers.SerializerMethodField()
+    pending_review_amount = serializers.SerializerMethodField()
+    contributions = serializers.SerializerMethodField()
+
     class Meta(ProjectListSerializer.Meta):
         fields = ProjectListSerializer.Meta.fields + [
             'business_description', 'current_status', 'next_milestones', 
             'use_of_funds', 'skin_in_the_game', 'team_members', 'team_members_text', 
-            'confidentiality_agreement_text', 'documents'
+            'confidentiality_agreement_text', 'documents', 'investors_count', 
+            'pending_review_amount', 'contributions'
         ]
 
     def get_documents(self, obj):
@@ -85,6 +107,36 @@ class ProjectDetailSerializer(ProjectListSerializer):
         # For public/unauthenticated, show only non-confidential
         docs = obj.documents.filter(is_confidential=False)
         return ProjectDocumentSerializer(docs, many=True).data
+
+    def get_investors_count(self, obj):
+        return obj.collaboration_requests.filter(status=CollaborationRequestStatus.CONFIRMED).count()
+        
+    def get_pending_review_amount(self, obj):
+        from django.db.models import Sum
+        total = obj.collaboration_requests.filter(status=CollaborationRequestStatus.PENDING).aggregate(Sum('proposed_budget'))['proposed_budget__sum']
+        return total or 0.00
+        
+    def get_contributions(self, obj):
+        request = self.context.get('request')
+        is_sponsor = request and hasattr(request.user, 'sponsor_profile') and request.user.sponsor_profile == obj.sponsor
+        
+        has_signed_nda = False
+        if request and hasattr(request.user, 'investor_profile'):
+            has_signed_nda = obj.collaboration_requests.filter(
+                investor=request.user.investor_profile, nda_signed=True
+            ).exists()
+            
+        # Only show contributions to the sponsor or investors who have signed the NDA
+        if is_sponsor or has_signed_nda:
+            contributions = obj.collaboration_requests.filter(status=CollaborationRequestStatus.CONFIRMED)
+            return [
+                {
+                    "investor_name": c.investor.user.full_name,
+                    "amount": str(c.proposed_budget),
+                    "date": c.created_at
+                } for c in contributions
+            ]
+        return []
 
 class ProjectCreateUpdateSerializer(serializers.ModelSerializer):
     category_ids = serializers.PrimaryKeyRelatedField(

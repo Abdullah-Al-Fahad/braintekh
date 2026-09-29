@@ -28,6 +28,12 @@ class InvestorTypeChoices(models.TextChoices):
     NONE = "NONE", _("None")
 
 
+class SponsorTypeChoices(models.TextChoices):
+    INDIVIDUAL = "INDIVIDUAL", _("Individual")
+    COMPANY = "COMPANY", _("Company")
+    NONE = "NONE", _("None")
+
+
 class DocumentTypeChoices(models.TextChoices):
     BUSINESS_LICENSE = "BUSINESS_LICENSE", _("Business License")
     TAX_DOCUMENT = "TAX_DOCUMENT", _("Tax Document")
@@ -92,6 +98,12 @@ class InvestorProfile(TimeStampedModel):
         db_index=True,
     )
 
+    # Company Verification Fields (if investor_type == COMPANY)
+    legal_company_name = models.CharField(max_length=255, blank=True)
+    registration_number = models.CharField(max_length=100, blank=True)
+    business_address = models.TextField(blank=True)
+    company_website = models.URLField(max_length=500, blank=True)
+
     # Contact & Location
     phone = models.CharField(max_length=20, blank=True)
     country = models.CharField(max_length=100, blank=True)
@@ -133,6 +145,12 @@ class SponsorProfile(TimeStampedModel):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="sponsor_profile",
+    )
+    sponsor_type = models.CharField(
+        max_length=20,
+        choices=SponsorTypeChoices.choices,
+        default=SponsorTypeChoices.NONE,
+        db_index=True,
     )
 
     # Company Verification Fields

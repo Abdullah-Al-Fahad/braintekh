@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     PublicProjectListView, PublicProjectDetailView,
     SponsorProjectListView, SponsorProjectDetailView,
-    SponsorCollaborationRequestListView, SponsorCollaborationRequestUpdateView,
+    SponsorCollaborationRequestListView, SponsorAllCollaborationRequestListView, SponsorCollaborationRequestUpdateView,
+    SponsorCollaborationRequestApproveView, SponsorCollaborationRequestRejectView, SponsorCollaborationRequestFundReceivedView,
     BulkConfirmInvestorsView,
     InvestorCollaborationRequestCreateView, InvestorSignNDAView, InvestorMyRequestsListView,
     ToggleSavedProjectView, SavedProjectListView
@@ -19,7 +20,11 @@ urlpatterns = [
     path('sponsor/', SponsorProjectListView.as_view(), name='sponsor-project-list-create'),
     path('sponsor/<int:pk>/', SponsorProjectDetailView.as_view(), name='sponsor-project-detail-update'),
     path('sponsor/<int:project_id>/requests/', SponsorCollaborationRequestListView.as_view(), name='sponsor-request-list'),
+    path('sponsor/requests/', SponsorAllCollaborationRequestListView.as_view(), name='sponsor-all-request-list'),
     path('sponsor/requests/<int:pk>/', SponsorCollaborationRequestUpdateView.as_view(), name='sponsor-request-update'),
+    path('sponsor/requests/<int:pk>/approve/', SponsorCollaborationRequestApproveView.as_view(), name='sponsor-request-approve'),
+    path('sponsor/requests/<int:pk>/reject/', SponsorCollaborationRequestRejectView.as_view(), name='sponsor-request-reject'),
+    path('sponsor/requests/<int:pk>/fund-received/', SponsorCollaborationRequestFundReceivedView.as_view(), name='sponsor-request-fund-received'),
     path('<int:pk>/confirm-investors/', BulkConfirmInvestorsView.as_view(), name='sponsor-bulk-confirm'),
 
     # Investor Endpoints

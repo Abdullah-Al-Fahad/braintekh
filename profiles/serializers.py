@@ -95,6 +95,7 @@ class InvestorProfileSerializer(UserFieldsMixin, serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name", required=False)
     last_name = serializers.CharField(source="user.last_name", required=False)
     email = serializers.EmailField(source="user.email", read_only=True)
+    documents = DocumentSerializer(source="user.documents", many=True, read_only=True)
     industries = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Industry.objects.all(),
@@ -106,13 +107,16 @@ class InvestorProfileSerializer(UserFieldsMixin, serializers.ModelSerializer):
         fields = (
             "investor_type",
             "first_name", "last_name", "email",
+            "legal_company_name", "registration_number",
+            "business_address", "company_website",
             "phone", "country", "location",
             "company_name", "position_title", "bio",
             "profile_photo", "industries",
             "verification_status",
+            "documents",
             "created_at", "updated_at",
         )
-        read_only_fields = ("verification_status", "created_at", "updated_at")
+        read_only_fields = ("verification_status", "documents", "created_at", "updated_at")
 
 
 class SponsorProfileSerializer(UserFieldsMixin, serializers.ModelSerializer):
@@ -131,6 +135,7 @@ class SponsorProfileSerializer(UserFieldsMixin, serializers.ModelSerializer):
         model = SponsorProfile
         fields = (
             "id",
+            "sponsor_type",
             "first_name", "last_name", "email",
             "legal_company_name", "registration_number",
             "business_address", "company_website",
