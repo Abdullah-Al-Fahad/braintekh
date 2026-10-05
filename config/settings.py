@@ -35,12 +35,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 ROOT_URLCONF = 'config.urls'
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 SITE_ID = 1
 
 # ---------------------------------------------------------------------------
 # Installed Applications
 # ---------------------------------------------------------------------------
 DJANGO_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -51,6 +53,7 @@ DJANGO_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    'channels',
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
@@ -278,5 +281,15 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': False,
         },
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Channels (WebSockets)
+# ---------------------------------------------------------------------------
+CHANNEL_LAYERS = {
+    'default': {
+        # Fallback to InMemory channel layer for dev. In production, use Redis!
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }

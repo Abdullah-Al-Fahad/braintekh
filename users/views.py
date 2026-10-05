@@ -78,3 +78,72 @@ class DeleteAccountView(APIView):
         user = request.user
         user.delete()
         return success_response(message="Account deleted successfully.")
+
+@extend_schema(
+    tags=["User Settings"],
+    summary="Switch Active Role",
+    description="Switches the user's active role between SPONSOR and INVESTOR. Returns a specific error code if the requested profile doesn't exist yet, prompting the frontend to launch the onboarding flow.",
+    request={"application/json": {"type": "object", "properties": {"role": {"type": "string", "enum": ["SPONSOR", "INVESTOR"]}}}},
+    responses={
+        200: OpenApiResponse(description="Role switched successfully."),
+        400: OpenApiResponse(description="Invalid role or missing profile. (Check error_code='PROFILE_MISSING')")
+    }
+)
+class SwitchRoleView(APIView):
+    """
+    POST /api/v1/users/switch-role/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        new_role = request.data.get('role')
+        
+        if new_role not in ['SPONSOR', 'INVESTOR']:
+            return error_response("Invalid role. Must be SPONSOR or INVESTOR.")
+            
+        if new_role == request.user.role:
+            return success_response(message=f"Role is already {new_role}.")
+            
+        is_onboarded = True
+        
+        # Check and bootstrap profile if missing
+        if new_role == 'SPONSOR' and not hasattr(request.user, 'sponsor_profile'):
+            from profiles.models import SponsorProfile
+            SponsorProfile.objects.create(user=request.user)
+            is_onboarded = False
+            
+        elif new_role == 'INVESTOR' and not hasattr(request.user, 'investor_profile'):
+            from profiles.models import InvestorProfile
+            InvestorProfile.objects.create(user=request.user)
+            is_onboarded = False
+            
+        # Switch the active role
+        request.user.role = new_role
+        request.user.save(update_fields=['role'])
+        
+        # Generate new tokens since role changed
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(request.user)
+        
+        # Get profile data for the new role
+        profile = getattr(request.user, f"{new_role.lower()}_profile")
+        account_type = getattr(profile, f"{new_role.lower()}_type", "NONE")
+        
+        # Override is_onboarded if they have an empty profile but we didn't just create it
+        if account_type == "NONE":
+            is_onboarded = False
+            
+        from .serializers import UserMeSerializer
+        
+        return success_response(
+            message=f"Switched to {new_role} mode successfully.",
+            data={
+                "active_role": new_role,
+                "is_onboarded": is_onboarded,
+                "verification_status": profile.verification_status,
+                "account_type": account_type,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserMeSerializer(request.user, context={'request': request}).data
+            }
+        )

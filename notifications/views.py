@@ -7,8 +7,9 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse
 from core.responses import created_response, error_response, success_response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.core.files.storage import default_storage
 from projects.models import Project
-from .models import Notification, Message, Conversation, ConversationParticipant, NotificationType
+from .models import Notification, Message, Conversation, ConversationParticipant, NotificationType, FCMDevice
 from .serializers import NotificationSerializer, MessageSerializer, ConversationSerializer
 from .services import ChatService
 
@@ -69,6 +70,39 @@ class MarkReadView(APIView):
         return success_response(message="Notification marked as read.")
 
 @extend_schema(
+    tags=["Notifications"],
+    summary="Delete Single Notification",
+    description="Deletes a specific notification by its ID.",
+    responses={200: OpenApiResponse(description="Notification deleted.")}
+)
+class NotificationDeleteView(APIView):
+    """
+    DELETE /api/v1/notifications/<pk>/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+        notification.delete()
+        return success_response(message="Notification deleted successfully.")
+
+@extend_schema(
+    tags=["Notifications"],
+    summary="Clear All Notifications",
+    description="Deletes all notifications for the authenticated user.",
+    responses={200: OpenApiResponse(description="All notifications deleted.")}
+)
+class NotificationClearAllView(APIView):
+    """
+    DELETE /api/v1/notifications/clear-all/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        deleted_count, _ = Notification.objects.filter(recipient=request.user).delete()
+        return success_response(message=f"Successfully deleted {deleted_count} notifications.")
+
+@extend_schema(
     tags=["Chat & Messages"],
     summary="List Conversations",
     description="Returns a list of all chat conversations the user is a participant in.",
@@ -120,9 +154,9 @@ class MessageListView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, conversation_id):
-        get_object_or_404(Conversation, id=conversation_id, participants=self.request.user)
-        messages = Message.objects.filter(conversation_id=conversation_id)
+    def get(self, request, pk):
+        get_object_or_404(Conversation, id=pk, participants=self.request.user)
+        messages = Message.objects.filter(conversation_id=pk)
         serializer = MessageSerializer(messages, many=True)
         return success_response(data=serializer.data)
 
@@ -187,3 +221,169 @@ class MessageCreateView(APIView):
         )
         
         return success_response(data=MessageSerializer(message).data)
+
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="Upload Chat Media",
+    description="Uploads an image or voice note to receive a public URL before sending a WebSocket message.",
+    request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}, "type": {"type": "string"}, "voice_duration": {"type": "string"}}}},
+    responses={201: OpenApiResponse(description="Media uploaded successfully")}
+)
+class ChatUploadView(APIView):
+    """
+    POST /api/v1/notifications/chat/upload/
+    """
+    permission_classes = [IsAuthenticated]
+    from rest_framework.parsers import MultiPartParser, FormParser
+    parser_classes = (MultiPartParser, FormParser)
+
+    def post(self, request):
+        uploaded_file = request.FILES.get('file')
+        media_type = request.data.get('type')
+        voice_duration = request.data.get('voice_duration')
+        
+        if not uploaded_file:
+            return error_response("No file uploaded.")
+            
+        # Save file (In production, this would go to S3)
+        file_path = default_storage.save(f"chat/{media_type}s/{uploaded_file.name}", uploaded_file)
+        media_url = request.build_absolute_uri(default_storage.url(file_path))
+        
+        return created_response(
+            message="Media uploaded successfully",
+            data={
+                "media_url": media_url,
+                "type": media_type,
+                "voice_duration": voice_duration
+            }
+        )
+
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="Mark Conversation as Read",
+    description="Resets the authenticated user's unread count for this conversation via REST.",
+    responses={200: OpenApiResponse(description="Conversation marked as read")}
+)
+class ConversationMarkReadView(APIView):
+    """
+    POST /api/v1/notifications/chat/conversations/{id}/read/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from django.utils import timezone
+        conversation = get_object_or_404(Conversation, id=pk, participants=request.user)
+        participant = conversation.conversationparticipant_set.get(user=request.user)
+        participant.last_read_at = timezone.now()
+        participant.save(update_fields=['last_read_at'])
+        return success_response(message="Conversation marked as read")
+
+@extend_schema(
+    tags=["Chat & Messages"],
+    summary="Remove Participant",
+    description="Allows project sponsors to remove a member from a group chat.",
+    responses={200: OpenApiResponse(description="Participant removed successfully")}
+)
+class ConversationRemoveParticipantView(APIView):
+    """
+    DELETE /api/v1/notifications/chat/conversations/{conversation_id}/participants/{user_id}/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, conversation_id, user_id):
+        conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+        
+        # Only Sponsor can remove participants
+        if not hasattr(request.user, 'sponsor_profile') or conversation.project.sponsor != request.user.sponsor_profile:
+            return error_response("Only the Sponsor can remove participants.", status_code=403)
+            
+        participant_to_remove = get_object_or_404(User, id=user_id)
+        if participant_to_remove == request.user:
+            return error_response("Cannot remove yourself.")
+            
+        conversation.participants.remove(participant_to_remove)
+        
+        # System message and broadcast handled by ChatService ideally, but for now we just remove
+        return success_response(message="Participant removed successfully")
+
+@extend_schema(
+    tags=["Notifications"],
+    summary="Register FCM Device Token",
+    description="Register a Firebase Cloud Messaging device token to receive push notifications.",
+    request={"application/json": {"type": "object", "properties": {"token": {"type": "string"}, "device_name": {"type": "string"}}}},
+    responses={200: OpenApiResponse(description="Token registered successfully")}
+)
+class FCMDeviceCreateView(APIView):
+    """
+    POST /api/v1/notifications/device-token/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get('token')
+        device_name = request.data.get('device_name', '')
+        
+        if not token:
+            return error_response("Firebase token is required.")
+            
+        # Create or update token for user
+        device, created = FCMDevice.objects.update_or_create(
+            token=token,
+            defaults={
+                'user': request.user,
+                'device_name': device_name,
+                'is_active': True
+            }
+        )
+        
+        return success_response(message="Device token registered successfully.")
+
+@extend_schema(
+    tags=["Notifications"],
+    summary="Send Test Push Notification",
+    description="Sends a test Firebase push notification to the authenticated user's registered devices. Useful for frontend testing.",
+    request={"application/json": {"type": "object", "properties": {"title": {"type": "string"}, "body": {"type": "string"}}}},
+    responses={200: OpenApiResponse(description="Test notification sent")}
+)
+class TestPushNotificationView(APIView):
+    """
+    POST /api/v1/notifications/test-push/
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        import firebase_admin
+        from firebase_admin import messaging
+        
+        title = request.data.get('title', 'Test Notification')
+        body = request.data.get('body', 'This is a test push notification from Braintekh!')
+        
+        devices = FCMDevice.objects.filter(user=request.user, is_active=True)
+        if not devices.exists():
+            return error_response("You don't have any registered Firebase devices. Call /device-token/ first.")
+            
+        success_count = 0
+        errors = []
+        
+        for device in devices:
+            try:
+                message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=title,
+                        body=body,
+                    ),
+                    token=device.token,
+                )
+                response = messaging.send(message)
+                success_count += 1
+            except Exception as e:
+                errors.append(str(e))
+                # Optional: if token is unregistered, deactivate it.
+                if 'not-found' in str(e) or 'unregistered' in str(e).lower():
+                    device.is_active = False
+                    device.save()
+                    
+        if success_count == 0 and errors:
+            return error_response(f"Failed to send notifications. Errors: {errors}")
+            
+        return success_response(message=f"Successfully sent {success_count} test notification(s)!")
