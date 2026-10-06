@@ -58,6 +58,10 @@ class Project(TimeStampedModel):
     confidentiality_agreement_text = models.TextField(blank=True, help_text="Detailed explanation of the confidentiality agreement")
     
     cover_image = models.ImageField(upload_to='project_images/', null=True, blank=True)
+    
+    # Termination Details
+    termination_reason = models.TextField(null=True, blank=True)
+    terminated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = _("Project")

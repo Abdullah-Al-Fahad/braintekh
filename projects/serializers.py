@@ -75,13 +75,16 @@ class ProjectDetailSerializer(ProjectListSerializer):
     investors_count = serializers.SerializerMethodField()
     pending_review_amount = serializers.SerializerMethodField()
     contributions = serializers.SerializerMethodField()
+    
+    nda_signed = serializers.SerializerMethodField()
+    my_request_status = serializers.SerializerMethodField()
 
     class Meta(ProjectListSerializer.Meta):
         fields = ProjectListSerializer.Meta.fields + [
             'business_description', 'current_status', 'next_milestones', 
             'use_of_funds', 'skin_in_the_game', 'team_members', 'team_members_text', 
             'confidentiality_agreement_text', 'documents', 'investors_count', 
-            'pending_review_amount', 'contributions'
+            'pending_review_amount', 'contributions', 'nda_signed', 'my_request_status'
         ]
 
     def get_documents(self, obj):
@@ -137,6 +140,22 @@ class ProjectDetailSerializer(ProjectListSerializer):
                 } for c in contributions
             ]
         return []
+
+    def get_nda_signed(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request.user, 'investor_profile'):
+            return obj.collaboration_requests.filter(
+                investor=request.user.investor_profile, nda_signed=True
+            ).exists()
+        return False
+
+    def get_my_request_status(self, obj):
+        request = self.context.get('request')
+        if request and hasattr(request.user, 'investor_profile'):
+            req = obj.collaboration_requests.filter(investor=request.user.investor_profile).first()
+            if req:
+                return req.status
+        return None
 
 class ProjectCreateUpdateSerializer(serializers.ModelSerializer):
     category_ids = serializers.PrimaryKeyRelatedField(

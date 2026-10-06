@@ -5,7 +5,9 @@ from .views import (
     ConversationListView, ConversationDetailView, MessageListView,
     ConversationCreateView, MessageCreateView,
     ChatUploadView, ConversationMarkReadView, ConversationRemoveParticipantView,
-    FCMDeviceCreateView, TestPushNotificationView
+    FCMDeviceCreateView, TestPushNotificationView,
+    ConversationHeaderView, ConversationLeaveView, ConversationReportView,
+    ConversationConfirmInvestorsView
 )
 
 app_name = 'notifications'
@@ -30,4 +32,10 @@ urlpatterns = [
     path('chat/upload/', ChatUploadView.as_view(), name='chat-upload'),
     path('chat/conversations/<int:pk>/read/', ConversationMarkReadView.as_view(), name='conversation-mark-read'),
     path('chat/conversations/<int:conversation_id>/participants/<int:user_id>/', ConversationRemoveParticipantView.as_view(), name='conversation-remove-participant'),
+    
+    # App Bar Actions
+    path('chat/conversations/<int:pk>/header/', ConversationHeaderView.as_view(), name='conversation-header'),
+    path('chat/conversations/<int:pk>/leave/', ConversationLeaveView.as_view(), name='conversation-leave'),
+    path('chat/conversations/<int:pk>/report/', ConversationReportView.as_view(), name='conversation-report'),
+    path('chat/conversations/<int:pk>/confirm-investors/', ConversationConfirmInvestorsView.as_view(), name='conversation-confirm-investors'),
 ]

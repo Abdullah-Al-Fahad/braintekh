@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     PublicProjectListView, PublicProjectDetailView,
-    SponsorProjectListView, SponsorProjectDetailView,
+    SponsorProjectListView, SponsorProjectDetailView, SponsorProjectTerminateView,
     SponsorCollaborationRequestListView, SponsorAllCollaborationRequestListView, SponsorCollaborationRequestUpdateView,
     SponsorCollaborationRequestApproveView, SponsorCollaborationRequestRejectView, SponsorCollaborationRequestFundReceivedView,
     BulkConfirmInvestorsView,
@@ -19,6 +19,7 @@ urlpatterns = [
     # Sponsor Endpoints
     path('sponsor/', SponsorProjectListView.as_view(), name='sponsor-project-list-create'),
     path('sponsor/<int:pk>/', SponsorProjectDetailView.as_view(), name='sponsor-project-detail-update'),
+    path('<int:pk>/terminate/', SponsorProjectTerminateView.as_view(), name='sponsor-project-terminate'),
     path('sponsor/<int:project_id>/requests/', SponsorCollaborationRequestListView.as_view(), name='sponsor-request-list'),
     path('sponsor/requests/', SponsorAllCollaborationRequestListView.as_view(), name='sponsor-all-request-list'),
     path('sponsor/requests/<int:pk>/', SponsorCollaborationRequestUpdateView.as_view(), name='sponsor-request-update'),

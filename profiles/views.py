@@ -310,22 +310,61 @@ class SavedProfileListView(APIView):
 
     def get(self, request):
         User = get_user_model()
-        saved_users = User.objects.filter(saved_by_users__user=request.user)
+        # We need to fetch the SavedProfile records to get created_at for ordering
+        saved_profiles = SavedProfile.objects.filter(user=request.user).select_related('saved_user')
+        
+        search_query = request.query_params.get('search', '').lower()
+        if search_query:
+            from django.db.models import Q
+            saved_profiles = saved_profiles.filter(
+                Q(saved_user__first_name__icontains=search_query) |
+                Q(saved_user__last_name__icontains=search_query) |
+                Q(saved_user__sponsor_profile__legal_company_name__icontains=search_query) |
+                Q(saved_user__sponsor_profile__position_title__icontains=search_query) |
+                Q(saved_user__investor_profile__legal_company_name__icontains=search_query) |
+                Q(saved_user__investor_profile__position_title__icontains=search_query)
+            )
+            
+        ordering = request.query_params.get('ordering', '-created_at')
+        if ordering == 'created_at':
+            saved_profiles = saved_profiles.order_by('created_at')
+        elif ordering == 'name' or ordering == 'first_name':
+            saved_profiles = saved_profiles.order_by('saved_user__first_name', 'saved_user__last_name')
+        elif ordering == '-name' or ordering == '-first_name':
+            saved_profiles = saved_profiles.order_by('-saved_user__first_name', '-saved_user__last_name')
+        else:
+            # Default to -created_at
+            saved_profiles = saved_profiles.order_by('-created_at')
+            
+        # Optional basic pagination
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        total_count = saved_profiles.count()
+        paginated_profiles = saved_profiles[start:end]
         
         results = []
-        for user in saved_users:
+        for sp in paginated_profiles:
+            user = sp.saved_user
             if user.role == RoleChoices.INVESTOR and hasattr(user, 'investor_profile'):
                 data = InvestorProfileSerializer(user.investor_profile).data
                 data.pop('ssn_or_ein', None)
                 data['is_saved'] = True
+                data['saved_at'] = sp.created_at
                 results.append(data)
             elif user.role == RoleChoices.SPONSOR and hasattr(user, 'sponsor_profile'):
                 data = SponsorProfileSerializer(user.sponsor_profile).data
                 data.pop('ssn_or_ein', None)
                 data['is_saved'] = True
+                data['saved_at'] = sp.created_at
                 results.append(data)
                 
-        return success_response(data=results)
+        return success_response(data={
+            "count": total_count,
+            "results": results
+        })
 
 
 @extend_schema(

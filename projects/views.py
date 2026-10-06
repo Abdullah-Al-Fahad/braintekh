@@ -104,10 +104,15 @@ class SponsorProjectListView(APIView):
     parser_classes = (MultiPartParser, FormParser) # For cover_image upload
 
     def get(self, request):
-        status_filter = request.query_params.get('status')
-        projects = Project.objects.filter(sponsor=request.user.sponsor_profile)
-        if status_filter:
-            projects = projects.filter(status=status_filter)
+        status_filter = request.query_params.get('status', 'all').lower()
+        projects = Project.objects.filter(sponsor=request.user.sponsor_profile).order_by('-created_at')
+        
+        if status_filter == 'active':
+            projects = projects.filter(status__in=[ProjectStatusChoices.ACTIVE])
+        elif status_filter == 'completed':
+            projects = projects.filter(status__in=[ProjectStatusChoices.COMPLETED, ProjectStatusChoices.FUNDED])
+        elif status_filter == 'terminated':
+            projects = projects.filter(status__in=[ProjectStatusChoices.TERMINATED, ProjectStatusChoices.CANCELLED])
             
         serializer = ProjectListSerializer(projects, many=True)
         return success_response(data=serializer.data)
@@ -145,6 +150,85 @@ class SponsorProjectDetailView(APIView):
         serializer.save()
         logger.info("Project updated by Sponsor: %s", request.user.email)
         return success_response(data=ProjectDetailSerializer(project, context={'request': request}).data, message="Project updated successfully.")
+
+
+@extend_schema(
+    tags=["Sponsor Projects"],
+    summary="Terminate Project",
+    description="Soft-terminates a project and notifies all participating investors.",
+    request={"application/json": {"type": "object", "properties": {"reason": {"type": "string"}}}},
+    responses={200: OpenApiResponse(description="Project terminated successfully.")}
+)
+class SponsorProjectTerminateView(APIView):
+    """
+    POST /api/v1/projects/<id>/terminate/
+    """
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+
+    def post(self, request, pk):
+        from django.utils import timezone
+        
+        project = get_object_or_404(Project, pk=pk)
+        
+        if project.sponsor != request.user.sponsor_profile:
+            return error_response("You do not have permission to terminate this project.", status=403)
+            
+        if project.status == ProjectStatusChoices.TERMINATED:
+            return error_response("This project is already terminated.", status=400)
+            
+        reason = request.data.get('reason', '').strip()
+        if len(reason) < 10:
+            return error_response("Termination reason is required and must be at least 10 characters.", status=400)
+            
+        project.status = ProjectStatusChoices.TERMINATED
+        project.termination_reason = reason
+        project.terminated_at = timezone.now()
+        project.save(update_fields=['status', 'termination_reason', 'terminated_at'])
+        
+        # Notify investors
+        from notifications.models import FCMDevice, Notification, NotificationType
+        import firebase_admin
+        from firebase_admin import messaging
+        
+        investors = set()
+        for req in project.collaboration_requests.all():
+            investors.add(req.investor.user)
+            
+        for user in investors:
+            Notification.objects.create(
+                recipient=user,
+                title="Project Terminated",
+                message=f'"{project.title}" has been terminated by the sponsor. Reason: {reason}',
+                notification_type=NotificationType.SYSTEM,
+                related_object_id=str(project.id)
+            )
+            
+            # FCM
+            devices = FCMDevice.objects.filter(user=user, is_active=True)
+            for device in devices:
+                try:
+                    msg = messaging.Message(
+                        notification=messaging.Notification(
+                            title=f"⚠️ Project Terminated: {project.title}",
+                            body=f"The sponsor has terminated this project: {reason[:100]}",
+                        ),
+                        data={"type": "PROJECT_TERMINATED", "project_id": str(project.id)},
+                        token=device.token,
+                    )
+                    messaging.send(msg)
+                except Exception as e:
+                    logger.error(f"Failed to send FCM to {user.email}: {e}")
+                    
+        return success_response(
+            message="Project has been terminated successfully.",
+            data={
+                "id": project.id,
+                "title": project.title,
+                "status": project.status,
+                "terminated_at": project.terminated_at,
+                "termination_reason": project.termination_reason
+            }
+        )
 
 
 @extend_schema(
@@ -325,6 +409,9 @@ class InvestorCollaborationRequestCreateView(APIView):
         project = get_object_or_404(Project, pk=project_id)
         investor = request.user.investor_profile
         
+        if project.status == ProjectStatusChoices.TERMINATED or project.status == ProjectStatusChoices.CANCELLED:
+            return error_response("Project is no longer accepting requests.", status=400)
+            
         if project.status not in [ProjectStatusChoices.ACTIVE]:
             return error_response("Can only submit requests for active projects.")
         
@@ -361,6 +448,10 @@ class InvestorSignNDAView(APIView):
 
     def post(self, request, project_id):
         project = get_object_or_404(Project, pk=project_id)
+        
+        if project.status == ProjectStatusChoices.TERMINATED or project.status == ProjectStatusChoices.CANCELLED:
+            return error_response("Project is no longer accepting NDAs.", status=400)
+            
         investor = request.user.investor_profile
         
         collab_request = CollaborationRequest.objects.filter(project=project, investor=investor).first()

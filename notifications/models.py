@@ -47,6 +47,7 @@ class ConversationParticipant(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     joined_at = models.DateTimeField(auto_now_add=True)
     last_read_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True, help_text="False if user left or was removed")
 
     class Meta:
         unique_together = ('conversation', 'user')
@@ -55,10 +56,11 @@ class MessageType(models.TextChoices):
     TEXT = 'text', _('Text')
     IMAGE = 'image', _('Image')
     VOICE = 'voice', _('Voice Note')
+    SYSTEM = 'system', _('System')
 
 class Message(TimeStampedModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages', null=True)
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages', null=True, blank=True)
     
     message_type = models.CharField(max_length=10, choices=MessageType.choices, default=MessageType.TEXT)
     content = models.TextField(blank=True) # Text can be blank if just sending an image/voice note
