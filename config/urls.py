@@ -34,6 +34,7 @@ urlpatterns = [
     path("api/v1/profiles/", include("profiles.urls", namespace="profiles")),
     path("api/v1/projects/", include("projects.urls", namespace="projects")),
     path("api/v1/notifications/", include("notifications.urls", namespace="notifications")),
+    path("api/v1/ai/", include("ai.urls", namespace="ai")),
 ]
 
 # Serve media files in development only.

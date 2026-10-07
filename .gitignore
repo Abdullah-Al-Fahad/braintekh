@@ -42,3 +42,4 @@ htmlcov/
 .coverage.*
 .pytest_cache/
 firebase.json
+client_secret_*.json

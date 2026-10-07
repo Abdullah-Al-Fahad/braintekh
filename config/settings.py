@@ -37,6 +37,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://clubby-andy-irksomely.ngrok-free.dev',
 ]
 
+GOOGLE_SERVER_CLIENT_ID = env('GOOGLE_SERVER_CLIENT_ID', default=None)
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 ROOT_URLCONF = 'config.urls'
@@ -84,6 +86,7 @@ LOCAL_APPS = [
     'profiles.apps.ProfilesConfig',
     'projects.apps.ProjectsConfig',
     'notifications.apps.NotificationsConfig',
+    'ai.apps.AiConfig',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

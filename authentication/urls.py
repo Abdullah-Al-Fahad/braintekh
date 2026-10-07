@@ -8,6 +8,8 @@ from .views import (
     ResendOTPView,
     ForgotPasswordView,
     ResetPasswordView,
+    GoogleLoginView,
+    AppleLoginView,
 )
 
 app_name = "authentication"
@@ -26,4 +28,8 @@ urlpatterns = [
     # Password recovery
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot-password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset-password"),
+
+    # Social auth
+    path("google/", GoogleLoginView.as_view(), name="google-login"),
+    path("apple/", AppleLoginView.as_view(), name="apple-login"),
 ]

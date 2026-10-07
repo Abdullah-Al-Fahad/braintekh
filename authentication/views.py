@@ -30,6 +30,7 @@ from .serializers import (
     ResetPasswordSerializer,
 )
 from .services import send_otp_email
+from .social import verify_google_token, verify_apple_token
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -248,3 +249,87 @@ class ResetPasswordView(APIView):
 
         logger.info("Password reset successfully for: %s", user.email)
         return success_response(message="Password has been reset. You can now log in with your new password.")
+
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        id_token_str = request.data.get('id_token')
+        if not id_token_str:
+            return error_response("id_token is required", status_code=status.HTTP_400_BAD_REQUEST)
+            
+        idinfo = verify_google_token(id_token_str)
+        if not idinfo:
+            return error_response("Invalid Google token", status_code=status.HTTP_401_UNAUTHORIZED)
+            
+        email = idinfo.get('email')
+        first_name = idinfo.get('given_name', '')
+        last_name = idinfo.get('family_name', '')
+        
+        # Link or create user
+        user, created = User.objects.get_or_create(email=email, defaults={
+            'first_name': first_name,
+            'last_name': last_name,
+            'is_email_verified': True,
+            'auth_provider': 'google'
+        })
+        
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            user.save(update_fields=["is_email_verified"])
+            
+        refresh = RefreshToken.for_user(user)
+        return success_response(data={
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "role": user.role,
+            "user": UserDetailsSerializer(user).data
+        })
+
+class AppleLoginView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        id_token_str = request.data.get('id_token')
+        if not id_token_str:
+            return error_response("id_token is required", status_code=status.HTTP_400_BAD_REQUEST)
+            
+        idinfo = verify_apple_token(id_token_str)
+        if not idinfo:
+            return error_response("Invalid Apple token", status_code=status.HTTP_401_UNAUTHORIZED)
+            
+        email = idinfo.get('email')
+        
+        # Apple only sends name on the FIRST ever login in a 'user' object
+        import json
+        first_name = ""
+        last_name = ""
+        name_json = request.data.get('name_json')
+        if name_json:
+            try:
+                name_data = json.loads(name_json)
+                first_name = name_data.get('name', {}).get('firstName', '')
+                last_name = name_data.get('name', {}).get('lastName', '')
+            except json.JSONDecodeError:
+                pass
+                
+        user, created = User.objects.get_or_create(email=email, defaults={
+            'first_name': first_name,
+            'last_name': last_name,
+            'is_email_verified': True,
+            'auth_provider': 'apple'
+        })
+        
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            user.save(update_fields=["is_email_verified"])
+            
+        refresh = RefreshToken.for_user(user)
+        return success_response(data={
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "role": user.role,
+            "user": UserDetailsSerializer(user).data
+        })
