@@ -175,6 +175,14 @@ class SponsorProfile(TimeStampedModel):
         db_index=True,
     )
 
+    # Master NDA & Confidential Docs
+    nda_confidentiality_terms = models.TextField(
+        blank=True, 
+        default="This Non-Disclosure Agreement governs the disclosure of confidential and proprietary information between the parties. By signing below, you agree to keep all disclosed materials strictly confidential and use them solely for evaluation purposes."
+    )
+    nda_pitch_deck = models.FileField(upload_to="sponsor_ndas/", null=True, blank=True)
+    nda_custom_clauses = models.JSONField(default=list, blank=True)
+
     class Meta:
         verbose_name = _("Sponsor Profile")
         verbose_name_plural = _("Sponsor Profiles")

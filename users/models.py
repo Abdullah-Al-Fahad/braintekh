@@ -89,6 +89,8 @@ class User(AbstractUser):
         choices=SubscriptionTierChoices.choices,
         default=SubscriptionTierChoices.FREE
     )
+    
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name"]

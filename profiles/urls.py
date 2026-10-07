@@ -10,7 +10,8 @@ from .views import (
     PublicProfileDetailView,
     ToggleSavedProfileView,
     SavedProfileListView,
-    VerificationDocumentUploadView
+    VerificationDocumentUploadView,
+    SponsorNDAView
 )
 
 app_name = "profiles"
@@ -28,6 +29,7 @@ urlpatterns = [
     # Sponsor onboarding
     path("sponsor/", SponsorOnboardingView.as_view(), name="sponsor-onboarding"),
     path("sponsor/status/", VerificationStatusView.as_view(), name="sponsor-status"),
+    path("sponsor/nda/", SponsorNDAView.as_view(), name="sponsor-nda"),
     path("verification-documents/", VerificationDocumentUploadView.as_view(), name="verification-documents"),
     path("documents/upload/", DocumentUploadView.as_view(), name="document-upload"),
 

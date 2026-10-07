@@ -14,6 +14,9 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
+admin.site.site_header = "Braintekh"
+admin.site.site_title = "Braintekh Admin"
+admin.site.index_title = "Dashboard"
 
 urlpatterns = [
     # Django admin

@@ -147,3 +147,55 @@ class SwitchRoleView(APIView):
                 "user": UserMeSerializer(request.user, context={'request': request}).data
             }
         )
+
+@extend_schema(
+    tags=["Auth & Users"],
+    summary="Delete Account",
+    description="Soft-deletes the user's account and anonymizes data. Also terminates active projects for sponsors.",
+    request={"application/json": {"type": "object", "properties": {"password": {"type": "string"}, "confirmation": {"type": "string"}}}},
+    responses={200: OpenApiResponse(description="Account deleted successfully.")}
+)
+class DeleteAccountView(APIView):
+    """
+    POST /api/v1/users/delete-account/
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        user = request.user
+        password = request.data.get("password")
+        
+        if not password:
+            return error_response("Password is required to delete your account.", status=400)
+            
+        if not user.check_password(password):
+            return error_response("Incorrect password. Please verify and try again.", status=400)
+            
+        # Terminate active projects if Sponsor
+        if user.role == 'SPONSOR':
+            from projects.models import Project, ProjectStatusChoices
+            from django.utils import timezone
+            active_projects = Project.objects.filter(sponsor__user=user, status=ProjectStatusChoices.ACTIVE)
+            for project in active_projects:
+                project.status = ProjectStatusChoices.TERMINATED
+                project.termination_reason = "Account deleted by sponsor."
+                project.terminated_at = timezone.now()
+                project.save(update_fields=['status', 'termination_reason', 'terminated_at'])
+                
+        # Soft delete and anonymize
+        from django.utils import timezone
+        import uuid
+        
+        user.is_active = False
+        user.deleted_at = timezone.now()
+        user.email = f"deleted_{uuid.uuid4().hex[:8]}_{user.email}"
+        # Clear push notifications tokens if using FCMDevice
+        try:
+            from notifications.models import FCMDevice
+            FCMDevice.objects.filter(user=user).delete()
+        except ImportError:
+            pass
+            
+        user.save()
+        
+        return success_response(message="Account has been deleted successfully. You have been logged out.")

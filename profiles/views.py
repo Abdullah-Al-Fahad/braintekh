@@ -415,7 +415,114 @@ class VerificationStatusView(APIView):
         else:
             return error_response("Please select your role before checking verification status.")
 
+        documents = Document.objects.filter(user=user)
+        from .serializers import DocumentSerializer
+        doc_data = DocumentSerializer(documents, many=True).data
+        
+        company_name = ""
+        registration_number = ""
+        address = ""
+        website = ""
+        
+        if user.role == RoleChoices.INVESTOR:
+            company_name = profile.legal_company_name
+        elif user.role == RoleChoices.SPONSOR:
+            company_name = profile.legal_company_name
+            registration_number = profile.registration_number
+            address = profile.business_address
+            website = profile.company_website
+
         return success_response(data={
             "role": user.role,
-            "verification_status": profile.verification_status,
+            "status": profile.verification_status, # "status" matches frontend spec
+            "verification_status": profile.verification_status, # keep for backwards compat
+            "company_name": company_name,
+            "registration_number": registration_number,
+            "address": address,
+            "website": website,
+            "documents": doc_data,
+            "rejection_reason": None
         })
+
+@extend_schema(
+    tags=["Profiles"],
+    summary="Get / Update Sponsor NDA",
+    description="Retrieves or updates the authenticated sponsor's active NDA configuration and confidential attachments.",
+    responses={200: OpenApiResponse(description="Sponsor NDA Details")}
+)
+class SponsorNDAView(APIView):
+    """
+    GET /api/v1/profiles/sponsor/nda/
+    POST /api/v1/profiles/sponsor/nda/
+    """
+    permission_classes = (IsAuthenticated, IsEmailVerified, IsSponsor)
+    parser_classes = (MultiPartParser, FormParser)
+
+    def get(self, request):
+        profile = request.user.sponsor_profile
+        
+        pitch_deck_data = None
+        if profile.nda_pitch_deck:
+            pitch_deck_data = {
+                "file_name": profile.nda_pitch_deck.name.split('/')[-1],
+                "file_url": request.build_absolute_uri(profile.nda_pitch_deck.url),
+                "file_size": f"{profile.nda_pitch_deck.size / (1024 * 1024):.1f} MB" if profile.nda_pitch_deck.size else "0 MB",
+            }
+            
+        data = {
+            "title": "Non-Disclosure Agreement",
+            "disclosing_party": profile.legal_company_name or request.user.full_name,
+            "effective_date": request.user.date_joined.strftime("%Y-%m-%d"),
+            "confidentiality_terms": profile.nda_confidentiality_terms,
+            "pitch_deck_file": pitch_deck_data,
+            "custom_clauses": profile.nda_custom_clauses
+        }
+        return success_response(data=data)
+
+    def post(self, request):
+        profile = request.user.sponsor_profile
+        
+        confidentiality_terms = request.data.get('confidentiality_terms')
+        if confidentiality_terms is not None:
+            profile.nda_confidentiality_terms = confidentiality_terms
+            
+        pitch_deck = request.data.get('pitch_deck')
+        if pitch_deck:
+            # Check size max 25MB
+            if pitch_deck.size > 25 * 1024 * 1024:
+                return error_response("File exceeds 25 MB limit.", status=400)
+            if not pitch_deck.name.lower().endswith('.pdf'):
+                return error_response("Only PDF files are allowed.", status=400)
+            profile.nda_pitch_deck = pitch_deck
+            
+        custom_clauses = request.data.get('custom_clauses')
+        if custom_clauses is not None:
+            import json
+            try:
+                if isinstance(custom_clauses, str):
+                    custom_clauses = json.loads(custom_clauses)
+                if not isinstance(custom_clauses, list):
+                    raise ValueError
+                profile.nda_custom_clauses = custom_clauses
+            except (ValueError, json.JSONDecodeError):
+                return error_response("custom_clauses must be a valid JSON array.", status=400)
+                
+        profile.save()
+        
+        pitch_deck_data = None
+        if profile.nda_pitch_deck:
+            pitch_deck_data = {
+                "file_name": profile.nda_pitch_deck.name.split('/')[-1],
+                "file_url": request.build_absolute_uri(profile.nda_pitch_deck.url),
+                "file_size": f"{profile.nda_pitch_deck.size / (1024 * 1024):.1f} MB" if profile.nda_pitch_deck.size else "0 MB",
+            }
+            
+        return success_response(
+            message="NDA details and confidential attachments updated successfully.",
+            data={
+                "disclosing_party": profile.legal_company_name or request.user.full_name,
+                "confidentiality_terms": profile.nda_confidentiality_terms,
+                "pitch_deck_file": pitch_deck_data,
+                "custom_clauses": profile.nda_custom_clauses
+            }
+        )

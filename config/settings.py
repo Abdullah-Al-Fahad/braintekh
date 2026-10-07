@@ -30,6 +30,12 @@ env = environ.Env(
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 ALLOWED_HOSTS = env('ALLOWED_HOSTS')
+ALLOWED_HOSTS.append('.ngrok-free.dev')
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.dev',
+    'https://clubby-andy-irksomely.ngrok-free.dev',
+]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
@@ -43,6 +49,9 @@ SITE_ID = 1
 # ---------------------------------------------------------------------------
 DJANGO_APPS = [
     'daphne',
+    'unfold',
+    'unfold.contrib.import_export',
+    'import_export',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -291,5 +300,99 @@ CHANNEL_LAYERS = {
     'default': {
         # Fallback to InMemory channel layer for dev. In production, use Redis!
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Unfold Admin Panel Configuration
+# ---------------------------------------------------------------------------
+UNFOLD = {
+    "DASHBOARD_CALLBACK": "projects.admin_dashboard.dashboard_callback",
+    "SITE_TITLE": "Braintekh Admin",
+    "SITE_HEADER": "Braintekh",
+    "SITE_URL": "/",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Navigation",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Dashboard",
+                        "icon": "dashboard",
+                        "link": "/admin/", 
+                    },
+                ],
+            },
+            {
+                "title": "Projects & Investments",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "Projects",
+                        "icon": "rocket_launch",
+                        "link": "/admin/projects/project/",
+                    },
+                    {
+                        "title": "Categories",
+                        "icon": "category",
+                        "link": "/admin/projects/category/",
+                    },
+                    {
+                        "title": "Collaboration Requests",
+                        "icon": "handshake",
+                        "link": "/admin/projects/collaborationrequest/",
+                    },
+                ],
+            },
+            {
+                "title": "Users & CRM",
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": "All Users",
+                        "icon": "group",
+                        "link": "/admin/users/user/",
+                    },
+                    {
+                        "title": "Sponsor Profiles",
+                        "icon": "domain",
+                        "link": "/admin/profiles/sponsorprofile/",
+                    },
+                    {
+                        "title": "Investor Profiles",
+                        "icon": "person_filled",
+                        "link": "/admin/profiles/investorprofile/",
+                    },
+                    {
+                        "title": "Documents",
+                        "icon": "description",
+                        "link": "/admin/profiles/document/",
+                    },
+                ],
+            },
+        ],
+    },
+    "COLORS": {
+        "primary": {
+            "50": "239 246 255",
+            "100": "219 234 254",
+            "200": "191 219 254",
+            "300": "147 197 253",
+            "400": "96 165 250",
+            "500": "59 130 246",
+            "600": "37 99 235",
+            "700": "29 78 216",
+            "800": "30 64 175",
+            "900": "30 58 138",
+        },
+    },
+    "LOGIN": {
+        "image": lambda request: "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop",
     },
 }

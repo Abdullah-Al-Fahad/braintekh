@@ -1,33 +1,56 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
+from import_export.admin import ImportExportModelAdmin
+from unfold.contrib.import_export.forms import ExportForm, ImportForm, SelectableFieldsExportForm
 
 from .models import Document, Industry, InvestorProfile, SponsorProfile
 
 
 @admin.register(Industry)
-class IndustryAdmin(admin.ModelAdmin):
+class IndustryAdmin(ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
 
 
 @admin.register(InvestorProfile)
-class InvestorProfileAdmin(admin.ModelAdmin):
+class InvestorProfileAdmin(ModelAdmin, ImportExportModelAdmin):
+    export_form_class = SelectableFieldsExportForm
     list_display = ("user", "investor_type", "country", "verification_status", "created_at")
     list_filter = ("investor_type", "verification_status", "country")
     search_fields = ("user__email", "user__first_name", "user__last_name")
     readonly_fields = ("created_at", "updated_at")
     filter_horizontal = ("industries",)
+    actions = ["approve_verification", "reject_verification"]
+
+    @admin.action(description="Approve selected KYC Verifications")
+    def approve_verification(self, request, queryset):
+        queryset.update(verification_status="APPROVED")
+
+    @admin.action(description="Reject selected KYC Verifications")
+    def reject_verification(self, request, queryset):
+        queryset.update(verification_status="REJECTED")
 
 
 @admin.register(SponsorProfile)
-class SponsorProfileAdmin(admin.ModelAdmin):
+class SponsorProfileAdmin(ModelAdmin, ImportExportModelAdmin):
+    export_form_class = SelectableFieldsExportForm
     list_display = ("user", "legal_company_name", "country", "verification_status", "created_at")
     list_filter = ("verification_status", "country")
     search_fields = ("user__email", "legal_company_name", "registration_number")
     readonly_fields = ("created_at", "updated_at")
+    actions = ["approve_verification", "reject_verification"]
+
+    @admin.action(description="Approve selected KYC Verifications")
+    def approve_verification(self, request, queryset):
+        queryset.update(verification_status="APPROVED")
+
+    @admin.action(description="Reject selected KYC Verifications")
+    def reject_verification(self, request, queryset):
+        queryset.update(verification_status="REJECTED")
 
 
 @admin.register(Document)
-class DocumentAdmin(admin.ModelAdmin):
+class DocumentAdmin(ModelAdmin):
     list_display = ("user", "document_type", "created_at")
     list_filter = ("document_type",)
     search_fields = ("user__email",)
