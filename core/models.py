@@ -20,3 +20,23 @@ class TimeStampedModel(models.Model):
     class Meta:
         abstract = True
         ordering = ['-created_at']
+
+class Banner(TimeStampedModel):
+    title = models.CharField(max_length=255)
+    subtitle = models.CharField(max_length=255, blank=True)
+    tag = models.CharField(max_length=50, blank=True)
+    bg_gradient_start = models.CharField(max_length=7, default="#0F1E2E")
+    bg_gradient_end = models.CharField(max_length=7, default="#162A3D")
+    image = models.ImageField(upload_to="banners/", null=True, blank=True)
+    action_text = models.CharField(max_length=50, blank=True)
+    action_url = models.CharField(max_length=255, blank=True)
+    target_project_id = models.CharField(max_length=50, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    role = models.CharField(max_length=20, blank=True, help_text="Target role (e.g., INVESTOR). Blank for all.")
+
+    class Meta:
+        verbose_name = _("Banner")
+        verbose_name_plural = _("Banners")
+
+    def __str__(self):
+        return self.title

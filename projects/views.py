@@ -1,5 +1,6 @@
 import logging
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, generics, filters
 from rest_framework.views import APIView
@@ -57,6 +58,74 @@ class PublicProjectListView(generics.ListAPIView):
             ProjectStatusChoices.FUNDED,
             ProjectStatusChoices.COMPLETED
         ]).select_related('sponsor__user', 'industry').prefetch_related('categories')
+
+
+class DiscoverProjectListView(APIView):
+    """
+    GET /api/v1/projects/discover/
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        queryset = Project.objects.filter(status__in=[
+            ProjectStatusChoices.ACTIVE, 
+            ProjectStatusChoices.FUNDED,
+            ProjectStatusChoices.COMPLETED
+        ]).select_related('sponsor__user', 'industry').prefetch_related('categories')
+        
+        category = request.query_params.get('category')
+        if category and category.lower() != 'all':
+            queryset = queryset.filter(industry__name__iexact=category)
+            
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(Q(title__icontains=search) | Q(location__icontains=search))
+            
+        min_roi = request.query_params.get('min_roi')
+        if min_roi:
+            queryset = queryset.filter(target_roi__gte=min_roi)
+            
+        max_roi = request.query_params.get('max_roi')
+        if max_roi:
+            queryset = queryset.filter(target_roi__lte=max_roi)
+            
+        min_raise = request.query_params.get('min_raise')
+        if min_raise:
+            queryset = queryset.filter(funding_goal__gte=min_raise)
+            
+        max_raise = request.query_params.get('max_raise')
+        if max_raise:
+            queryset = queryset.filter(funding_goal__lte=max_raise)
+            
+        sort_by = request.query_params.get('sort_by')
+        if sort_by == 'highest_roi':
+            queryset = queryset.order_by('-target_roi')
+        elif sort_by == 'lowest_roi':
+            queryset = queryset.order_by('target_roi')
+        elif sort_by == 'highest_raise':
+            queryset = queryset.order_by('-funding_goal')
+        elif sort_by == 'lowest_raise':
+            queryset = queryset.order_by('funding_goal')
+        elif sort_by == 'newest':
+            queryset = queryset.order_by('-created_at')
+        else:
+            queryset = queryset.order_by('-created_at')
+            
+        from django.core.paginator import Paginator
+        page_num = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        paginator = Paginator(queryset, page_size)
+        page = paginator.get_page(page_num)
+        
+        serializer = ProjectListSerializer(page.object_list, many=True, context={'request': request})
+        
+        return success_response(data={
+            "count": paginator.count,
+            "next": f"/api/v1/projects/discover/?page={page.next_page_number()}" if page.has_next() else None,
+            "previous": f"/api/v1/projects/discover/?page={page.previous_page_number()}" if page.has_previous() else None,
+            "results": serializer.data
+        })
+
 
 @extend_schema(
     tags=["Projects"],
@@ -518,9 +587,9 @@ class ToggleSavedProjectView(APIView):
         if not created:
             # If it already existed, toggle it off (unsave)
             saved_project.delete()
-            return success_response(message="Project removed from saved list.")
+            return success_response(message="Project removed from saved list.", data={"is_saved": False})
             
-        return success_response(message="Project saved successfully.")
+        return success_response(message="Project saved successfully.", data={"is_saved": True})
 
 
 @extend_schema(
@@ -529,14 +598,60 @@ class ToggleSavedProjectView(APIView):
     description="Returns a paginated list of projects the user has saved.",
     responses={200: ProjectListSerializer(many=True)}
 )
-class SavedProjectListView(generics.ListAPIView):
+class SavedProjectListView(APIView):
     """
     GET /api/v1/projects/saved/
     List all projects bookmarked by the user.
     """
     permission_classes = (IsAuthenticated,)
-    serializer_class = ProjectListSerializer
 
-    def get_queryset(self):
-        # Return projects related to the user's SavedProject records
-        return Project.objects.filter(saved_by__user=self.request.user)
+    def get(self, request):
+        saved_items = SavedProject.objects.filter(user=request.user).select_related('project')
+        
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            # Map investor-friendly status strings to backend enums if necessary
+            pass # simplified for now
+            
+        from django.core.paginator import Paginator
+        page_num = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        paginator = Paginator(saved_items, page_size)
+        page = paginator.get_page(page_num)
+        
+        results = []
+        for save_rec in page:
+            p = save_rec.project
+            # Try to fetch invested amount / value if the user is an investor
+            invested_val = 0
+            if hasattr(request.user, 'investor_profile'):
+                active_request = CollaborationRequest.objects.filter(
+                    project=p, 
+                    investor=request.user.investor_profile,
+                    status=CollaborationRequestStatus.CONFIRMED
+                ).first()
+                if active_request:
+                    invested_val = float(active_request.proposed_budget)
+            
+            target_roi_val = float(p.target_roi or 0)
+            current_value = invested_val * (1 + target_roi_val / 100) if invested_val else 0
+            
+            results.append({
+                "id": str(p.id),
+                "saved_item_id": str(save_rec.id),
+                "title": p.title,
+                "category": p.industry.name if p.industry else "General",
+                "saved_date": save_rec.created_at.isoformat(),
+                "formatted_date": save_rec.created_at.strftime('%b %d, %Y'),
+                "status": p.status,
+                "invested": f"${invested_val:,.0f}" if invested_val else "$0",
+                "value": f"${current_value:,.0f}" if invested_val else "$0",
+                "target_roi": f"+{target_roi_val:.1f}%",
+                "funding_progress": float(p.raised_amount) / float(p.funding_goal) if p.funding_goal else 0,
+                "image_url": request.build_absolute_uri(p.cover_image.url) if p.cover_image else None
+            })
+            
+        return success_response(data={
+            "count": paginator.count,
+            "results": results
+        })

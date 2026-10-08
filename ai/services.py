@@ -146,3 +146,91 @@ class GeminiAIService:
         except Exception as e:
             print("Gemini Error:", e)
             return {}
+
+    def get_initial_copilot_state(self, user):
+        conversation = AIConversation.objects.create(user=user, step="copilot_chat")
+        welcome_msg = AIMessage.objects.create(
+            conversation=conversation,
+            role="assistant",
+            content="Hello! I am your AI Investment Copilot. How can I help you optimize your portfolio or projects today?",
+            suggestions=["Explore Top Projects", "Draft New Proposal", "Market Analytics"]
+        )
+        return {
+            "conversation_id": str(conversation.id),
+            "welcome_message": {
+                "id": str(welcome_msg.id),
+                "text": welcome_msg.content,
+                "is_user": False,
+                "created_at": welcome_msg.timestamp.isoformat(),
+                "suggestions": welcome_msg.suggestions
+            },
+            "quick_prompts": [
+                "Analyze high-yield real estate projects",
+                "How do I create a new funding request?",
+                "Calculate estimated ROI for Tech Hub",
+                "What are current market trends?"
+            ]
+        }
+
+    def handle_copilot_chat(self, conversation, user_message_text, context=None):
+        user_msg = AIMessage.objects.create(
+            conversation=conversation,
+            role="user",
+            content=user_message_text
+        )
+        
+        if not self.client:
+            ai_msg = AIMessage.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content="[Mock AI Reply] You said: " + user_message_text + ". (No Gemini key configured).",
+                suggestions=["Show Financial Breakdown", "Connect with Sponsor"]
+            )
+            return user_msg, ai_msg, ["Calculate ROI", "Market Trends"]
+            
+        history = AIMessage.objects.filter(conversation=conversation).order_by('timestamp')[:10]
+        
+        sys_instruct = (
+            "You are an AI Investment Copilot for Damani AI. Help users analyze investments, create projects, and answer market questions. "
+            "Output valid JSON ONLY matching this schema: {\"text\": \"your answer\", \"suggestions\": [\"3 short follow up chip texts\"], \"quick_prompts\": [\"3 short quick prompt texts\"]}. "
+            "Do not use markdown blocks for JSON, just output raw JSON."
+        )
+        if context:
+            sys_instruct += f" Context provided by app: {json.dumps(context)}"
+            
+        messages = []
+        for m in history:
+            role = 'user' if m.role == 'user' else 'model'
+            messages.append({'role': role, 'parts': [{'text': m.content}]})
+            
+        try:
+            response = self.client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=messages,
+                config=types.GenerateContentConfig(
+                    system_instruction=sys_instruct,
+                    temperature=0.7,
+                )
+            )
+            raw_text = response.text.replace('```json', '').replace('```', '').strip()
+            data = json.loads(raw_text)
+            
+            ai_msg = AIMessage.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content=data.get('text', "I couldn't generate a proper response."),
+                suggestions=data.get('suggestions', [])
+            )
+            quick_prompts = data.get('quick_prompts', ["Calculate ROI", "Market Trends", "Top Projects"])
+            
+            return user_msg, ai_msg, quick_prompts
+            
+        except Exception as e:
+            print("Copilot Error:", e)
+            ai_msg = AIMessage.objects.create(
+                conversation=conversation,
+                role="assistant",
+                content="Sorry, I encountered an error while processing your request.",
+                suggestions=[]
+            )
+            return user_msg, ai_msg, ["Retry query", "Back to dashboard"]

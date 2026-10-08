@@ -257,11 +257,11 @@ class GoogleLoginView(APIView):
     def post(self, request, *args, **kwargs):
         id_token_str = request.data.get('id_token')
         if not id_token_str:
-            return error_response("id_token is required", status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response("id_token is required", status=status.HTTP_400_BAD_REQUEST)
             
         idinfo = verify_google_token(id_token_str)
         if not idinfo:
-            return error_response("Invalid Google token", status_code=status.HTTP_401_UNAUTHORIZED)
+            return error_response("Invalid Google token", status=status.HTTP_401_UNAUTHORIZED)
             
         email = idinfo.get('email')
         first_name = idinfo.get('given_name', '')
@@ -294,11 +294,11 @@ class AppleLoginView(APIView):
     def post(self, request, *args, **kwargs):
         id_token_str = request.data.get('id_token')
         if not id_token_str:
-            return error_response("id_token is required", status_code=status.HTTP_400_BAD_REQUEST)
+            return error_response("id_token is required", status=status.HTTP_400_BAD_REQUEST)
             
         idinfo = verify_apple_token(id_token_str)
         if not idinfo:
-            return error_response("Invalid Apple token", status_code=status.HTTP_401_UNAUTHORIZED)
+            return error_response("Invalid Apple token", status=status.HTTP_401_UNAUTHORIZED)
             
         email = idinfo.get('email')
         

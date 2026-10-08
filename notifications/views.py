@@ -294,7 +294,7 @@ class ConversationRemoveParticipantView(APIView):
         conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
         
         # Only Sponsor can remove participants
-        if not hasattr(request.user, 'sponsor_profile') or conversation.project.created_by_id != request.user.id:
+        if not hasattr(request.user, 'sponsor_profile') or conversation.project.sponsor.user_id != request.user.id:
             return error_response(
                 message="Only the project sponsor who created this project can perform this action.",
                 status=403,
@@ -448,14 +448,14 @@ class ConversationHeaderView(APIView):
             return error_response("You must be an active participant.", status=403)
             
         project = conversation.project
-        is_owner = project and project.created_by_id == request.user.id
+        is_owner = project and project.sponsor.user_id == request.user.id
         
         active_participants = conversation.conversationparticipant_set.filter(is_active=True).select_related('user')
         
         participants_data = []
         for cp in active_participants:
             u = cp.user
-            p_is_owner = project and project.created_by_id == u.id
+            p_is_owner = project and project.sponsor.user_id == u.id
             avatar_url = None
             if hasattr(u, 'sponsor_profile') and u.sponsor_profile.profile_photo:
                 avatar_url = request.build_absolute_uri(u.sponsor_profile.profile_photo.url)
@@ -495,7 +495,7 @@ class ConversationLeaveView(APIView):
     def post(self, request, pk):
         conversation = get_object_or_404(Conversation, id=pk)
         
-        if conversation.project and conversation.project.created_by_id == request.user.id:
+        if conversation.project and conversation.project.sponsor.user_id == request.user.id:
             return error_response(
                 message="Project owners cannot leave their project group chat.",
                 status=400,
@@ -583,7 +583,7 @@ class ConversationConfirmInvestorsView(APIView):
         if not project:
             return error_response("This conversation is not linked to a project.")
             
-        if project.created_by_id != request.user.id:
+        if project.sponsor.user_id != request.user.id:
             return error_response(
                 message="Only the project sponsor who created this project can confirm investors.",
                 status=403,

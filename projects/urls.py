@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    PublicProjectListView, PublicProjectDetailView,
+    PublicProjectListView, PublicProjectDetailView, DiscoverProjectListView,
     SponsorProjectListView, SponsorProjectDetailView, SponsorProjectTerminateView,
     SponsorCollaborationRequestListView, SponsorAllCollaborationRequestListView, SponsorCollaborationRequestUpdateView,
     SponsorCollaborationRequestApproveView, SponsorCollaborationRequestRejectView, SponsorCollaborationRequestFundReceivedView,
@@ -8,12 +8,16 @@ from .views import (
     InvestorCollaborationRequestCreateView, InvestorSignNDAView, InvestorMyRequestsListView,
     ToggleSavedProjectView, SavedProjectListView
 )
+from .investor_views import (
+    InvestorDashboardView, InvestorInvestmentsView, InvestorPortfolioSummaryView
+)
 
 app_name = 'projects'
 
 urlpatterns = [
     # Public (or Authenticated) Endpoints
     path('', PublicProjectListView.as_view(), name='public-project-list'),
+    path('discover/', DiscoverProjectListView.as_view(), name='discover-project-list'),
     path('<int:pk>/', PublicProjectDetailView.as_view(), name='public-project-detail'),
 
     # Sponsor Endpoints
@@ -29,6 +33,9 @@ urlpatterns = [
     path('<int:pk>/confirm-investors/', BulkConfirmInvestorsView.as_view(), name='sponsor-bulk-confirm'),
 
     # Investor Endpoints
+    path('investor/dashboard/', InvestorDashboardView.as_view(), name='investor-dashboard'),
+    path('investor/investments/', InvestorInvestmentsView.as_view(), name='investor-investments'),
+    path('investor/portfolio-summary/', InvestorPortfolioSummaryView.as_view(), name='investor-portfolio-summary'),
     path('<int:project_id>/requests/', InvestorCollaborationRequestCreateView.as_view(), name='investor-request-create'),
     path('<int:project_id>/sign-nda/', InvestorSignNDAView.as_view(), name='investor-sign-nda'),
     path('investor/my-requests/', InvestorMyRequestsListView.as_view(), name='investor-my-requests'),

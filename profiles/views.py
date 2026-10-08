@@ -217,7 +217,7 @@ class PublicProfileDetailView(APIView):
             data = SponsorProfileSerializer(user.sponsor_profile).data
             data.pop('ssn_or_ein', None)
         else:
-            return error_response("Profile not found or incomplete.", status_code=status.HTTP_404_NOT_FOUND)
+            return error_response("Profile not found or incomplete.", status=status.HTTP_404_NOT_FOUND)
             
         if request.user.is_authenticated:
             data['is_saved'] = SavedProfile.objects.filter(user=request.user, saved_user=user).exists()
@@ -360,6 +360,19 @@ class SavedProfileListView(APIView):
                 data['is_saved'] = True
                 data['saved_at'] = sp.created_at
                 results.append(data)
+            else:
+                # Fallback if profile doesn't exist yet but was somehow saved
+                results.append({
+                    "id": user.id,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "role": user.role,
+                    "profile_photo": None,
+                    "is_saved": True,
+                    "saved_at": sp.created_at,
+                    "is_incomplete_profile": True
+                })
                 
         return success_response(data={
             "count": total_count,
